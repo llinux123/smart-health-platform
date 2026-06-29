@@ -1,7 +1,6 @@
 ---
-trigger: glob
-glob: *.java
-
+trigger: model_decision
+description: 编写或重构 Java 代码时，确保代码风格、命名规范、现代特性使用一致
 ---
 # Java Coding Style
 
@@ -111,4 +110,3 @@ public class OrderNotFoundException extends RuntimeException {
 
 See skill: `java-coding-standards` for full coding standards with examples.
 See skill: `jpa-patterns` for JPA/Hibernate entity design patterns.
----

@@ -1,6 +1,6 @@
 ---
-trigger: glob
-glob: **/*.java
+trigger: model_decision
+description: 设计或实现 Java 架构模式时，如 Service 层、Repository、DTO 映射、Builder 等
 ---
 
 # Java Patterns
