@@ -37,6 +37,7 @@ public enum ResultCode {
     PRESCRIPTION_NOT_FOUND(3001, "处方不存在"),
     STOCK_NOT_ENOUGH(3002, "药品库存不足"),
     AUDIT_STATUS_ERROR(3003, "处方审核状态异常"),
+    PRESCRIPTION_ALREADY_AUDITED(3004, "处方已审核，不可重复操作"),
 
     // 问诊相关 4001-4999
     SESSION_NOT_FOUND(4001, "问诊会话不存在"),
