@@ -29,8 +29,14 @@ public class CommonConstants {
     /** 挂号订单号前缀 */
     public static final String ORDER_SN_PREFIX = "REG_";
 
-    /** 处方编号前缀 */
+    /** 处方编号前缀（旧格式） */
     public static final String PRESCRIPTION_SN_PREFIX = "PRE_";
+
+    /** 处方编号前缀（新格式: RX_yyyyMMdd_hospitalId_XXXXXX） */
+    public static final String RX_SN_PREFIX = "RX_";
+
+    /** 默认院区/医院ID */
+    public static final String DEFAULT_HOSPITAL_ID = "001";
 
     /** 会话编号前缀 */
     public static final String SESSION_SN_PREFIX = "session_";

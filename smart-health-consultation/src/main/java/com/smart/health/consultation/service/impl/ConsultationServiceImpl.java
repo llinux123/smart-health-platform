@@ -4,8 +4,11 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.smart.health.common.exception.BusinessException;
+import com.smart.health.common.constant.CommonConstants;
 import com.smart.health.consultation.dto.ConsultStreamRequest;
 import com.smart.health.consultation.dto.ConsultStreamResponse;
+import com.smart.health.consultation.dto.SessionHistoryVO;
+import com.smart.health.consultation.dto.SessionVO;
 import com.smart.health.consultation.entity.ConsultationSession;
 import com.smart.health.consultation.mapper.ConsultationSessionMapper;
 import com.smart.health.consultation.service.ConsultationService;
@@ -26,6 +29,7 @@ import reactor.core.Disposable;
 import java.io.IOException;
 import java.time.LocalDateTime;
 import java.util.*;
+import java.util.concurrent.atomic.AtomicReference;
 
 /**
  * AI 问诊服务实现
@@ -47,24 +51,40 @@ public class ConsultationServiceImpl implements ConsultationService {
     @Override
     public SseEmitter streamConsult(ConsultStreamRequest request, Long patientId) {
         // 1. 参数校验
-        if (request.getSessionId() == null || request.getSessionId().isBlank()) {
-            throw new BusinessException("会话ID不能为空");
-        }
         if (request.getMessage() == null || request.getMessage().isBlank()) {
             throw new BusinessException("消息内容不能为空");
         }
 
-        // 2. 查询或创建会话
-        ConsultationSession session = sessionMapper.selectBySessionSn(request.getSessionId());
-        if (session == null) {
-            throw new BusinessException("问诊会话不存在: " + request.getSessionId());
+        // 2. 查询或自动创建会话
+        ConsultationSession session;
+        if (request.getSessionId() == null || request.getSessionId().isBlank()) {
+            // 自动创建新会话
+            String sessionSn = CommonConstants.SESSION_SN_PREFIX + System.currentTimeMillis() + "_" +
+                    UUID.randomUUID().toString().substring(0, 6).toUpperCase();
+            session = new ConsultationSession();
+            session.setSessionSn(sessionSn);
+            session.setPatientId(patientId);
+            session.setDraftId(request.getDraftId());
+            session.setSymptomDraft(null);
+            session.setChatLog(null);
+            sessionMapper.insert(session);
+            log.info("自动创建问诊会话, sessionSn={}, patientId={}", sessionSn, patientId);
+        } else {
+            session = sessionMapper.selectBySessionSn(request.getSessionId());
+            if (session == null) {
+                throw new BusinessException("问诊会话不存在: " + request.getSessionId());
+            }
         }
 
         // 3. 加载多轮对话历史
         List<Map<String, String>> chatHistory = parseChatLog(session.getChatLog());
 
-        // 4. RAG 检索：从 ES 知识库检索相关医学文献
+        // 4. RAG 检索：从 ES 知识库检索相关医学文献（用于 Prompt 上下文）
         String ragContext = ragRetrievalService.retrieveAsContext(request.getMessage(), 3);
+
+        // 4b. RAG 检索：获取引用来源（用于 SSE 响应中的 citations）
+        List<ConsultStreamResponse.Citation> citations =
+                ragRetrievalService.retrieveCitations(request.getMessage(), 3);
 
         // 5. 构建 Prompt
         List<Message> messages = buildPromptMessages(ragContext, chatHistory, request.getMessage(),
@@ -73,6 +93,7 @@ public class ConsultationServiceImpl implements ConsultationService {
         // 6. 创建 SseEmitter 并发起流式调用
         SseEmitter emitter = new SseEmitter(SSE_TIMEOUT);
         StringBuilder fullResponse = new StringBuilder();
+        AtomicReference<String> sessionSnRef = new AtomicReference<>(session.getSessionSn());
 
         Disposable disposable = chatClient.stream(new Prompt(messages))
                 .subscribe(
@@ -92,21 +113,31 @@ public class ConsultationServiceImpl implements ConsultationService {
                             }
                         },
                         error -> {
-                            log.error("AI 流式调用异常", error);
+                            log.error("AI 流式调用异常, sessionSn={}", sessionSnRef.get(), error);
                             try {
-                                String fallback = "抱歉，AI 服务暂时不可用，请稍后重试。";
-                                ConsultStreamResponse resp = ConsultStreamResponse.builder()
-                                        .content(fallback)
+                                // 发送 error 事件（携带结构化错误信息）
+                                ConsultStreamResponse errResp = ConsultStreamResponse.builder()
+                                        .error("AI 服务暂时不可用，请稍后重试。")
                                         .build();
                                 emitter.send(SseEmitter.event()
-                                        .data(objectMapper.writeValueAsString(resp)));
-                                emitter.send(SseEmitter.event().data("[DONE]"));
+                                        .name("error")
+                                        .data(objectMapper.writeValueAsString(errResp)));
                                 emitter.complete();
                             } catch (IOException ignored) {
                             }
                         },
                         () -> {
                             try {
+                                // 发送 citations 事件（携带引用来源）
+                                if (citations != null && !citations.isEmpty()) {
+                                    ConsultStreamResponse citResp = ConsultStreamResponse.builder()
+                                            .content("")
+                                            .citations(citations)
+                                            .build();
+                                    emitter.send(SseEmitter.event()
+                                            .data(objectMapper.writeValueAsString(citResp)));
+                                }
+
                                 // 发送结束标记
                                 emitter.send(SseEmitter.event().data("[DONE]"));
                                 emitter.complete();
@@ -115,7 +146,7 @@ public class ConsultationServiceImpl implements ConsultationService {
                                 saveChatTurn(session, chatHistory, request.getMessage(),
                                         fullResponse.toString());
                                 log.info("问诊流式响应完成, sessionSn={}, 本轮回答长度={}",
-                                        session.getSessionSn(), fullResponse.length());
+                                        sessionSnRef.get(), fullResponse.length());
                             } catch (IOException e) {
                                 log.error("SSE 完成发送失败", e);
                             }
@@ -124,13 +155,69 @@ public class ConsultationServiceImpl implements ConsultationService {
 
         // 超时/错误/完成时释放订阅
         emitter.onTimeout(() -> {
-            log.warn("SSE 超时, sessionSn={}", session.getSessionSn());
+            log.warn("SSE 超时, sessionSn={}", sessionSnRef.get());
             disposable.dispose();
         });
         emitter.onError(ex -> disposable.dispose());
         emitter.onCompletion(disposable::dispose);
 
         return emitter;
+    }
+
+    @Override
+    public String createSession(Long patientId, String draftId, String symptomDraft) {
+        String sessionSn = CommonConstants.SESSION_SN_PREFIX + System.currentTimeMillis() + "_" +
+                UUID.randomUUID().toString().substring(0, 6).toUpperCase();
+        ConsultationSession session = new ConsultationSession();
+        session.setSessionSn(sessionSn);
+        session.setPatientId(patientId);
+        session.setDraftId(draftId);
+        session.setSymptomDraft(symptomDraft);
+        session.setChatLog(null);
+        sessionMapper.insert(session);
+        log.info("创建问诊会话, sessionSn={}, patientId={}", sessionSn, patientId);
+        return sessionSn;
+    }
+
+    @Override
+    public List<SessionVO> listSessions(Long patientId) {
+        List<ConsultationSession> sessions = sessionMapper.selectByPatientId(patientId);
+        List<SessionVO> result = new ArrayList<>();
+        for (ConsultationSession s : sessions) {
+            int turnCount = parseChatLog(s.getChatLog()).size() / 2;
+            String summary = (s.getSymptomDraft() != null && s.getSymptomDraft().length() > 100)
+                    ? s.getSymptomDraft().substring(0, 100) + "..."
+                    : s.getSymptomDraft();
+            result.add(SessionVO.builder()
+                    .id(s.getId())
+                    .sessionSn(s.getSessionSn())
+                    .symptomDraftSummary(summary)
+                    .turnCount(turnCount)
+                    .createTime(s.getCreateTime())
+                    .build());
+        }
+        return result;
+    }
+
+    @Override
+    public List<SessionHistoryVO> getSessionHistory(String sessionSn, Long patientId) {
+        ConsultationSession session = sessionMapper.selectBySessionSn(sessionSn);
+        if (session == null) {
+            throw new BusinessException("问诊会话不存在: " + sessionSn);
+        }
+        if (!session.getPatientId().equals(patientId)) {
+            throw new BusinessException("无权访问该会话");
+        }
+        List<Map<String, String>> chatLog = parseChatLog(session.getChatLog());
+        List<SessionHistoryVO> history = new ArrayList<>();
+        for (Map<String, String> turn : chatLog) {
+            history.add(SessionHistoryVO.builder()
+                    .role(turn.get("role"))
+                    .content(turn.get("content"))
+                    .timestamp(turn.get("timestamp"))
+                    .build());
+        }
+        return history;
     }
 
     /**
@@ -187,7 +274,6 @@ public class ConsultationServiceImpl implements ConsultationService {
      */
     private String extractContent(ChatResponse chatResponse) {
         if (chatResponse == null) return null;
-        // Spring AI 0.8.1: 尝试 getResult() 获取第一个 Generation
         var result = chatResponse.getResult();
         if (result != null && result.getOutput() != null) {
             return result.getOutput().getContent();
@@ -205,7 +291,7 @@ public class ConsultationServiceImpl implements ConsultationService {
         try {
             return objectMapper.readValue(chatLog, new TypeReference<List<Map<String, String>>>() {});
         } catch (JsonProcessingException e) {
-            log.error("解析 chatLog 失败, 将重置为空: {}", e.getMessage());
+            log.error("解析 chatLog 失败，将重置为空: {}", e.getMessage());
             return new ArrayList<>();
         }
     }
@@ -215,7 +301,6 @@ public class ConsultationServiceImpl implements ConsultationService {
      */
     private void saveChatTurn(ConsultationSession session, List<Map<String, String>> existingHistory,
                                String userMessage, String assistantResponse) {
-        // 追加本轮对话
         Map<String, String> userTurn = new LinkedHashMap<>();
         userTurn.put("role", "user");
         userTurn.put("content", userMessage);

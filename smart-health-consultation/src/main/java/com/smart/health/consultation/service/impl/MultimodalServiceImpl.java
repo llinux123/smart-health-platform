@@ -2,6 +2,7 @@ package com.smart.health.consultation.service.impl;
 
 import com.smart.health.common.constant.CommonConstants;
 import com.smart.health.common.exception.BusinessException;
+import com.smart.health.common.security.SecurityUtils;
 import com.smart.health.consultation.config.FileUploadConfig;
 import com.smart.health.consultation.dto.MultimodalAnalyzeResponse;
 import com.smart.health.consultation.entity.ConsultationSession;
@@ -77,7 +78,7 @@ public class MultimodalServiceImpl implements MultimodalService {
         // 5. 创建问诊会话记录
         ConsultationSession session = new ConsultationSession();
         session.setSessionSn(CommonConstants.SESSION_SN_PREFIX + UUID.randomUUID().toString().replace("-", ""));
-        session.setPatientId(patientId != null ? patientId : 0L);
+        session.setPatientId(patientId != null ? patientId : SecurityUtils.tryGetCurrentPatientId());
         session.setDraftId(draftId);
         session.setSymptomDraft(symptomDraft);
         consultationSessionMapper.insert(session);
