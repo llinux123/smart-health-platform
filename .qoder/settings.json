@@ -1,0 +1,8 @@
+{
+  "skills": {
+    "disabled": []
+  },
+  "enabledPlugins": {
+    "mgrep@local": true
+  }
+}

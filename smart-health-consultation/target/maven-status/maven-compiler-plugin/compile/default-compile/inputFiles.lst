@@ -1,0 +1,10 @@
+/home/muxin/codebase/project/smart-health-consultation/src/main/java/com/smart/health/consultation/package-info.java
+/home/muxin/codebase/project/smart-health-consultation/src/main/java/com/smart/health/consultation/config/FileUploadConfig.java
+/home/muxin/codebase/project/smart-health-consultation/src/main/java/com/smart/health/consultation/dto/ConsultStreamRequest.java
+/home/muxin/codebase/project/smart-health-consultation/src/main/java/com/smart/health/consultation/service/impl/MultimodalServiceImpl.java
+/home/muxin/codebase/project/smart-health-consultation/src/main/java/com/smart/health/consultation/entity/ConsultationSession.java
+/home/muxin/codebase/project/smart-health-consultation/src/main/java/com/smart/health/consultation/dto/ConsultStreamResponse.java
+/home/muxin/codebase/project/smart-health-consultation/src/main/java/com/smart/health/consultation/service/MultimodalService.java
+/home/muxin/codebase/project/smart-health-consultation/src/main/java/com/smart/health/consultation/dto/MultimodalAnalyzeResponse.java
+/home/muxin/codebase/project/smart-health-consultation/src/main/java/com/smart/health/consultation/controller/AiConsultController.java
+/home/muxin/codebase/project/smart-health-consultation/src/main/java/com/smart/health/consultation/mapper/ConsultationSessionMapper.java
