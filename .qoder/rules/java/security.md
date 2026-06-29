@@ -1,6 +1,6 @@
 ---
-trigger: glob
-glob: *.java
+trigger: model_decision
+description: 处理 Java 中的敏感数据、用户输入、SQL 查询、认证授权或依赖安全时
 ---
 # Java Security
 

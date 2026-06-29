@@ -1,10 +1,6 @@
 ---
-trigger: glob
-glob: *.java
----
----
-paths:
-  - "**/*.java"
+trigger: model_decision
+description: 对java类型文件进行测试时
 ---
 # Java Testing
 

@@ -36,7 +36,12 @@ public enum ResultCode {
     // 处方相关 3001-3999
     PRESCRIPTION_NOT_FOUND(3001, "处方不存在"),
     STOCK_NOT_ENOUGH(3002, "药品库存不足"),
-    AUDIT_STATUS_ERROR(3003, "处方审核状态异常");
+    AUDIT_STATUS_ERROR(3003, "处方审核状态异常"),
+
+    // 问诊相关 4001-4999
+    SESSION_NOT_FOUND(4001, "问诊会话不存在"),
+    AI_SERVICE_UNAVAILABLE(4002, "AI服务暂不可用"),
+    RAG_SEARCH_FAIL(4003, "知识库检索失败");
 
     private final Integer code;
     private final String message;

@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="CompilerConfiguration">
+    <annotationProcessing>
+      <profile name="Maven default annotation processors profile" enabled="true">
+        <sourceOutputDir name="target/generated-sources/annotations" />
+        <sourceTestOutputDir name="target/generated-test-sources/test-annotations" />
+        <outputRelativeToContentRoot value="true" />
+        <module name="smart-health-common" />
+        <module name="smart-health-consultation" />
+        <module name="smart-health-registration" />
+        <module name="smart-health-app" />
+        <module name="smart-health-user" />
+        <module name="smart-health-prescription" />
+      </profile>
+    </annotationProcessing>
+  </component>
+  <component name="JavacSettings">
+    <option name="ADDITIONAL_OPTIONS_OVERRIDE">
+      <module name="smart-health-app" options="-parameters" />
+      <module name="smart-health-common" options="-parameters" />
+      <module name="smart-health-consultation" options="-parameters" />
+      <module name="smart-health-platform" options="-parameters" />
+      <module name="smart-health-prescription" options="-parameters" />
+      <module name="smart-health-registration" options="-parameters" />
+      <module name="smart-health-user" options="-parameters" />
+    </option>
+  </component>
+</project>

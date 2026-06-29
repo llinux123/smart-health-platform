@@ -36,7 +36,7 @@ public class MultimodalServiceImpl implements MultimodalService {
     private final ChatClient chatClient;
 
     @Override
-    public MultimodalAnalyzeResponse analyze(MultipartFile file, String type) {
+    public MultimodalAnalyzeResponse analyze(MultipartFile file, String type, Long patientId) {
         // 1. 参数校验
         if (file == null || file.isEmpty()) {
             throw new BusinessException("上传文件不能为空");
@@ -77,7 +77,7 @@ public class MultimodalServiceImpl implements MultimodalService {
         // 5. 创建问诊会话记录
         ConsultationSession session = new ConsultationSession();
         session.setSessionSn(CommonConstants.SESSION_SN_PREFIX + UUID.randomUUID().toString().replace("-", ""));
-        session.setPatientId(0L); // TODO: 从当前登录用户上下文获取
+        session.setPatientId(patientId != null ? patientId : 0L);
         session.setDraftId(draftId);
         session.setSymptomDraft(symptomDraft);
         consultationSessionMapper.insert(session);
