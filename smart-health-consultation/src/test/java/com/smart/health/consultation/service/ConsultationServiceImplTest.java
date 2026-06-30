@@ -1,8 +1,10 @@
 package com.smart.health.consultation.service;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.smart.health.common.exception.BusinessException;
+import com.smart.health.consultation.dto.ConsultStreamRequest;
 import com.smart.health.consultation.dto.SessionHistoryVO;
 import com.smart.health.consultation.dto.SessionVO;
 import com.smart.health.consultation.entity.ConsultationSession;
@@ -16,10 +18,20 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.ai.chat.ChatResponse;
+import org.springframework.ai.chat.Generation;
+import org.springframework.ai.chat.messages.AssistantMessage;
 import org.springframework.ai.openai.OpenAiChatClient;
+import org.springframework.ai.openai.api.OpenAiApi;
+import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
+import reactor.core.publisher.Flux;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -148,6 +160,171 @@ class ConsultationServiceImplTest {
             List<SessionVO> result = consultationService.listSessions(42L);
 
             assertThat(result).isEmpty();
+        }
+    }
+
+    @Nested
+    @DisplayName("SSE 流式问诊")
+    class StreamConsult {
+
+        private ConsultationSession buildSession(Long id, String sn, Long patientId, String chatLog) {
+            ConsultationSession session = new ConsultationSession();
+            session.setId(id);
+            session.setSessionSn(sn);
+            session.setPatientId(patientId);
+            session.setChatLog(chatLog);
+            return session;
+        }
+
+        private ChatResponse mockChatResponse(String content) {
+            Generation gen = new Generation(content);
+            return new ChatResponse(List.of(gen));
+        }
+
+        @Test
+        @DisplayName("消息为空时抛出 BusinessException")
+        void streamConsult_emptyMessage_throws() {
+            ConsultStreamRequest request = ConsultStreamRequest.builder()
+                    .sessionId("session_001").message("").build();
+            assertThatThrownBy(() -> consultationService.streamConsult(request, 42L))
+                    .isInstanceOf(BusinessException.class)
+                    .hasMessageContaining("不能为空");
+        }
+
+        @Test
+        @DisplayName("消息为 null 时抛出 BusinessException")
+        void streamConsult_nullMessage_throws() {
+            ConsultStreamRequest request = ConsultStreamRequest.builder()
+                    .sessionId("session_001").message(null).build();
+            assertThatThrownBy(() -> consultationService.streamConsult(request, 42L))
+                    .isInstanceOf(BusinessException.class)
+                    .hasMessageContaining("不能为空");
+        }
+
+        @Test
+        @DisplayName("sessionId 为 null 时自动创建新会话")
+        void streamConsult_nullSessionId_autoCreatesSession() {
+            when(sessionMapper.insert(any(ConsultationSession.class))).thenReturn(1);
+            when(ragRetrievalService.retrieveAsContext(anyString(), anyInt())).thenReturn("");
+            when(ragRetrievalService.retrieveCitations(anyString(), anyInt())).thenReturn(List.of());
+            when(chatClient.stream(any(org.springframework.ai.chat.prompt.Prompt.class))).thenReturn(Flux.just(mockChatResponse("你好")));
+
+            ConsultStreamRequest request = ConsultStreamRequest.builder()
+                    .message("我头痛").build();
+            SseEmitter emitter = consultationService.streamConsult(request, 42L);
+
+            assertThat(emitter).isNotNull();
+            ArgumentCaptor<ConsultationSession> captor = ArgumentCaptor.forClass(ConsultationSession.class);
+            verify(sessionMapper).insert(captor.capture());
+            assertThat(captor.getValue().getSessionSn()).startsWith("session_");
+            assertThat(captor.getValue().getPatientId()).isEqualTo(42L);
+        }
+
+        @Test
+        @DisplayName("sessionId 为空字符串时自动创建新会话")
+        void streamConsult_emptySessionId_autoCreatesSession() {
+            when(sessionMapper.insert(any(ConsultationSession.class))).thenReturn(1);
+            when(ragRetrievalService.retrieveAsContext(anyString(), anyInt())).thenReturn("");
+            when(ragRetrievalService.retrieveCitations(anyString(), anyInt())).thenReturn(List.of());
+            when(chatClient.stream(any(org.springframework.ai.chat.prompt.Prompt.class))).thenReturn(Flux.just(mockChatResponse("你好")));
+
+            ConsultStreamRequest request = ConsultStreamRequest.builder()
+                    .sessionId("").message("我头痛").build();
+            SseEmitter emitter = consultationService.streamConsult(request, 42L);
+
+            assertThat(emitter).isNotNull();
+            verify(sessionMapper).insert(any(ConsultationSession.class));
+        }
+
+        @Test
+        @DisplayName("会话不存在时抛出 BusinessException")
+        void streamConsult_sessionNotFound_throws() {
+            when(sessionMapper.selectBySessionSn("nonexistent")).thenReturn(null);
+            ConsultStreamRequest request = ConsultStreamRequest.builder()
+                    .sessionId("nonexistent").message("我头痛").build();
+
+            assertThatThrownBy(() -> consultationService.streamConsult(request, 42L))
+                    .isInstanceOf(BusinessException.class)
+                    .hasMessageContaining("不存在");
+        }
+
+        @Test
+        @DisplayName("非本人会话时抛出权限异常")
+        void streamConsult_wrongPatient_throws() {
+            ConsultationSession session = buildSession(1L, "session_001", 99L, null);
+            when(sessionMapper.selectBySessionSn("session_001")).thenReturn(session);
+
+            ConsultStreamRequest request = ConsultStreamRequest.builder()
+                    .sessionId("session_001").message("我头痛").build();
+
+            assertThatThrownBy(() -> consultationService.streamConsult(request, 42L))
+                    .isInstanceOf(BusinessException.class)
+                    .hasMessageContaining("无权");
+        }
+
+        @Test
+        @DisplayName("正常流式问诊：加载历史、调用 LLM、保存对话")
+        void streamConsult_validRequest_returnsSseEmitterAndSavesChat() throws Exception {
+            String existingChatLog = objectMapper.writeValueAsString(List.of(
+                    Map.of("role", "user", "content", "之前的提问", "timestamp", "2026-06-28T10:00:00"),
+                    Map.of("role", "assistant", "content", "之前的回答", "timestamp", "2026-06-28T10:00:05")
+            ));
+            ConsultationSession session = buildSession(1L, "session_001", 42L, existingChatLog);
+            when(sessionMapper.selectBySessionSn("session_001")).thenReturn(session);
+            when(ragRetrievalService.retrieveAsContext(anyString(), anyInt())).thenReturn("知识库上下文");
+            when(ragRetrievalService.retrieveCitations(anyString(), anyInt())).thenReturn(List.of());
+            when(chatClient.stream(any(org.springframework.ai.chat.prompt.Prompt.class))).thenReturn(
+                    Flux.just(mockChatResponse("你好"), mockChatResponse("！"))
+            );
+
+            ConsultStreamRequest request = ConsultStreamRequest.builder()
+                    .sessionId("session_001").message("我头痛").build();
+
+            CountDownLatch latch = new CountDownLatch(1);
+            AtomicReference<String> savedChatLog = new AtomicReference<>();
+            doAnswer(invocation -> {
+                savedChatLog.set(invocation.getArgument(1));
+                latch.countDown();
+                return 1;
+            }).when(sessionMapper).updateChatLog(anyLong(), anyString());
+
+            SseEmitter emitter = consultationService.streamConsult(request, 42L);
+            assertThat(emitter).isNotNull();
+
+            // 等待异步流式响应完成
+            boolean completed = latch.await(5, TimeUnit.SECONDS);
+            assertThat(completed).isTrue();
+
+            // 验证 chatLog 包含本轮对话
+            String chatLog = savedChatLog.get();
+            assertThat(chatLog).isNotNull();
+            List<Map<String, String>> history = objectMapper.readValue(
+                    chatLog, new TypeReference<List<Map<String, String>>>() {});
+            // 原有2条 + 本轮user + assistant = 4条
+            assertThat(history).hasSize(4);
+            assertThat(history.get(2).get("role")).isEqualTo("user");
+            assertThat(history.get(2).get("content")).isEqualTo("我头痛");
+            assertThat(history.get(3).get("role")).isEqualTo("assistant");
+            assertThat(history.get(3).get("content")).isEqualTo("你好！");
+        }
+
+        @Test
+        @DisplayName("LLM 流式调用异常时返回 SseEmitter 且不抛异常")
+        void streamConsult_llmError_returnsEmitterWithoutThrowing() {
+            ConsultationSession session = buildSession(1L, "session_001", 42L, null);
+            when(sessionMapper.selectBySessionSn("session_001")).thenReturn(session);
+            when(ragRetrievalService.retrieveAsContext(anyString(), anyInt())).thenReturn("");
+            when(ragRetrievalService.retrieveCitations(anyString(), anyInt())).thenReturn(List.of());
+            when(chatClient.stream(any(org.springframework.ai.chat.prompt.Prompt.class))).thenReturn(
+                    Flux.error(new RuntimeException("LLM API failure"))
+            );
+
+            ConsultStreamRequest request = ConsultStreamRequest.builder()
+                    .sessionId("session_001").message("我头痛").build();
+
+            // 应正常返回 SseEmitter，错误在异步流中处理
+            SseEmitter emitter = consultationService.streamConsult(request, 42L);
+            assertThat(emitter).isNotNull();
         }
     }
 

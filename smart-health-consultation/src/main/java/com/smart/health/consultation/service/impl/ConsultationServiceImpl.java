@@ -74,6 +74,9 @@ public class ConsultationServiceImpl implements ConsultationService {
             if (session == null) {
                 throw new BusinessException("问诊会话不存在: " + request.getSessionId());
             }
+            if (!session.getPatientId().equals(patientId)) {
+                throw new BusinessException("无权访问该问诊会话");
+            }
         }
 
         // 3. 加载多轮对话历史
