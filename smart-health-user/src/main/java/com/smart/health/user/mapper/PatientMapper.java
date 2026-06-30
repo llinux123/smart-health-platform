@@ -28,4 +28,7 @@ public interface PatientMapper {
 
     @Select("SELECT COUNT(*) FROM t_patient WHERE id_card = #{idCard}")
     int countByIdCard(@Param("idCard") String idCard);
+
+    @Select("SELECT COUNT(*) FROM t_patient WHERE phone = #{phone}")
+    int countByPhone(@Param("phone") String phone);
 }

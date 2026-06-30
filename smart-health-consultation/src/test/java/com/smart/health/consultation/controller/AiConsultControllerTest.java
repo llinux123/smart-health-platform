@@ -6,6 +6,7 @@ import com.smart.health.consultation.dto.SessionHistoryVO;
 import com.smart.health.consultation.dto.SessionVO;
 import com.smart.health.consultation.service.ConsultationService;
 import com.smart.health.consultation.service.MultimodalService;
+import com.smart.health.consultation.service.RagRetrievalService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -48,6 +49,9 @@ class AiConsultControllerTest {
 
     @Mock
     private MultimodalService multimodalService;
+
+    @Mock
+    private RagRetrievalService ragRetrievalService;
 
     @BeforeEach
     void setUp() {
@@ -188,6 +192,28 @@ class AiConsultControllerTest {
             verify(consultationService).streamConsult(argThat(req ->
                     req.getSessionId() == null && "我头痛怎么办".equals(req.getMessage())
             ), eq(0L));
+        }
+    }
+
+    @Nested
+    @DisplayName("知识导入接口")
+    class KnowledgeImport {
+
+        @Test
+        @DisplayName("POST /api/v1/ai/knowledge/import 成功导入文档")
+        void importKnowledge_validRequest_returnsCount() throws Exception {
+            when(ragRetrievalService.importDocument(anyString(), anyString(), anyString())).thenReturn(1);
+
+            String body = "{\"title\":\"测试文档\",\"content\":\"测试内容\",\"category\":\"测试科\"}";
+
+            mockMvc.perform(post("/api/v1/ai/knowledge/import")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(body))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.code").value(200))
+                    .andExpect(jsonPath("$.data").value(1));
+
+            verify(ragRetrievalService).importDocument("测试文档", "测试内容", "测试科");
         }
     }
 }

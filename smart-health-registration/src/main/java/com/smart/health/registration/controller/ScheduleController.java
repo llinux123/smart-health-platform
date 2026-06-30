@@ -5,6 +5,8 @@ import com.smart.health.registration.dto.ScheduleCreateRequest;
 import com.smart.health.registration.dto.ScheduleVO;
 import com.smart.health.registration.dto.SeckillRequest;
 import com.smart.health.registration.dto.SeckillResponse;
+import com.smart.health.registration.entity.RegistrationOrder;
+import com.smart.health.registration.service.RegistrationOrderService;
 import com.smart.health.registration.service.ScheduleService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -30,6 +32,7 @@ import java.util.List;
 public class ScheduleController {
 
     private final ScheduleService scheduleService;
+    private final RegistrationOrderService registrationOrderService;
 
     @Operation(summary = "查看可预约的医生排班列表")
     @GetMapping("/api/v1/schedule/list")
@@ -52,5 +55,21 @@ public class ScheduleController {
     public Result<SeckillResponse> seckill(@Valid @RequestBody SeckillRequest request) {
         SeckillResponse response = scheduleService.seckill(request);
         return Result.ok(response);
+    }
+
+    @Operation(summary = "根据订单号查询订单")
+    @GetMapping("/api/v1/registration/order/detail")
+    public Result<RegistrationOrder> getOrderDetail(
+            @Parameter(description = "订单号") @RequestParam String orderSn) {
+        RegistrationOrder order = registrationOrderService.getByOrderSn(orderSn);
+        return Result.ok(order);
+    }
+
+    @Operation(summary = "查询患者的挂号订单列表")
+    @GetMapping("/api/v1/registration/order/list")
+    public Result<List<RegistrationOrder>> listOrders(
+            @Parameter(description = "患者 ID") @RequestParam Long patientId) {
+        List<RegistrationOrder> orders = registrationOrderService.listByPatientId(patientId);
+        return Result.ok(orders);
     }
 }

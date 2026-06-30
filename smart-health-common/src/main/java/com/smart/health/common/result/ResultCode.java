@@ -26,6 +26,7 @@ public enum ResultCode {
     USER_NOT_FOUND(1002, "用户不存在"),
     PASSWORD_ERROR(1003, "密码错误"),
     PHONE_EXISTS(1004, "手机号已注册"),
+    ID_CARD_EXISTS(1005, "身份证号已注册"),
 
     // 挂号相关 2001-2999
     SCHEDULE_NOT_FOUND(2001, "排班信息不存在"),

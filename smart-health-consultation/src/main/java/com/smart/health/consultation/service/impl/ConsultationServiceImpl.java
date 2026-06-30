@@ -234,7 +234,7 @@ public class ConsultationServiceImpl implements ConsultationService {
         systemContent.append("为患者提供专业、准确、易懂的医疗健康咨询服务。\n");
         systemContent.append("重要规则：\n");
         systemContent.append("1. 回答必须基于下方提供的【医学知识库】内容，不要编造不存在的医学事实。\n");
-        systemContent.append("2. 在回答末尾标注引用的知识来源（如：参考《xxx诊疗指南》）。\n");
+        systemContent.append("2. 在回答正文中使用 [1]、[2] 等编号标注引用来源，编号对应【医学知识库参考】中的【知识1】、【知识2】。\n");
         systemContent.append("3. 始终提醒患者：AI建议仅供参考，具体诊疗请遵医嘱。\n");
         systemContent.append("4. 语言要通俗易懂，避免过多专业术语。\n\n");
 
