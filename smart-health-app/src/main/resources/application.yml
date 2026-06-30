@@ -33,14 +33,11 @@ spring:
   # Spring AI - OpenAI Compatible API
   ai:
     openai:
-      base-url: https://${WorkspaceId:ws-9n3g02zvmmjc0ukc}.cn-beijing.maas.aliyuncs.com/compatible-mode/v1
-      api-key: ${AI_API_KEY:sk-ws-H.RXMPYDE.6E1X.MEQCIGjtAs6vhh7IX5srIjIEhavW9jgAlHoxB7KlvHHtncH4AiAyrYYEpj4dv2aSKFkuwN3kayGPwZL_a47fSAiOpgdd5g}
+      base-url: https://api.openai.com
+      api-key: ${AI_API_KEY:sk-placeholder}
       chat:
         options:
-          model: qwen3.7-max
-      embedding:
-        options:
-          model: text-embedding-ada-002
+          model: gpt-4o
 
   # Jackson
   jackson:

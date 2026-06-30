@@ -11,25 +11,16 @@ import java.util.List;
 public interface RagRetrievalService {
 
     /**
-     * 检索相关医学知识（返回结构化引用信息）
+     * 检索相关医学知识
      *
      * @param query 用户问题
      * @param topK  返回最相关的文档数量
-     * @return 检索到的知识文档内容列表（用于拼入 Prompt）
+     * @return 检索到的知识文档内容列表
      */
     List<String> retrieve(String query, int topK);
 
     /**
-     * 检索并拼接为上下文字符串（用于注入 Prompt）
-     *
-     * @param query 用户问题
-     * @param topK  返回最相关的文档数量
-     * @return 拼接后的知识上下文字符串
-     */
-    String retrieveAsContext(String query, int topK);
-
-    /**
-     * 检索并返回引用来源列表（用于 SSE 响应中的 citations 字段）
+     * 检索 RAG 引用来源
      *
      * @param query 用户问题
      * @param topK  返回最相关的文档数量
@@ -38,12 +29,11 @@ public interface RagRetrievalService {
     List<ConsultStreamResponse.Citation> retrieveCitations(String query, int topK);
 
     /**
-     * 导入医学知识文档到 ES 知识库
+     * 检索并拼接为上下文字符串
      *
-     * @param title    文档标题
-     * @param content  文档内容
-     * @param category 分类（科室）
-     * @return 导入成功条数
+     * @param query 用户问题
+     * @param topK  返回最相关的文档数量
+     * @return 拼接后的知识上下文字符串
      */
-    int importDocument(String title, String content, String category);
+    String retrieveAsContext(String query, int topK);
 }

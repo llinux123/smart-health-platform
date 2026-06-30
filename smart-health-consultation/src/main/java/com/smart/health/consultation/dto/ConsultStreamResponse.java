@@ -10,7 +10,6 @@ import java.util.List;
 
 /**
  * 问诊流式响应（SSE）
- * 每个 SSE data 事件携带一条该结构
  */
 @Data
 @Builder
@@ -19,30 +18,29 @@ import java.util.List;
 @Schema(description = "问诊流式响应")
 public class ConsultStreamResponse {
 
-    @Schema(description = "本次 chunk 的文本内容")
+    @Schema(description = "响应内容")
     private String content;
 
-    @Schema(description = "引用来源列表（仅在最后一个事件或单独事件中返回）")
+    @Schema(description = "RAG 引用来源（通常在流式结束前的单独事件中推送）")
     private List<Citation> citations;
 
-    @Schema(description = "SSE 错误信息（仅在 error 事件中出现）")
-    private String error;
-
     /**
-     * 引用来源
+     * RAG 引用来源
      */
     @Data
     @Builder
     @NoArgsConstructor
     @AllArgsConstructor
+    @Schema(description = "RAG 引用来源")
     public static class Citation {
-        @Schema(description = "文档标题")
+
+        @Schema(description = "文献标题")
         private String title;
 
-        @Schema(description = "文档分类")
+        @Schema(description = "文献类别")
         private String category;
 
-        @Schema(description = "摘要片段")
+        @Schema(description = "相关片段")
         private String snippet;
     }
 }

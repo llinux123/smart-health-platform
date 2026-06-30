@@ -18,8 +18,7 @@ CREATE TABLE IF NOT EXISTS `t_patient` (
   `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '注册时间',
   PRIMARY KEY (`id`),
   UNIQUE KEY `uk_username` (`username`),
-  UNIQUE KEY `uk_id_card` (`id_card`),
-  UNIQUE KEY `uk_phone` (`phone`)
+  UNIQUE KEY `uk_id_card` (`id_card`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='患者用户表';
 
 -- 2. 医生排班号源表
@@ -62,9 +61,6 @@ CREATE TABLE IF NOT EXISTS `t_prescription` (
   `diagnosis` varchar(500) NOT NULL COMMENT '临床诊断结论',
   `pdf_url` varchar(255) DEFAULT NULL COMMENT '电子处方PDF存根路径',
   `audit_status` tinyint(1) NOT NULL DEFAULT '0' COMMENT '药师审核状态 (0:待审核 1:审核通过 2:驳回)',
-  `pharmacist_id` bigint(20) DEFAULT NULL COMMENT '审核药师ID',
-  `audit_comments` varchar(500) DEFAULT NULL COMMENT '审核意见',
-  `audit_time` datetime DEFAULT NULL COMMENT '审核时间',
   `status` tinyint(1) NOT NULL DEFAULT '0' COMMENT '流转状态 (0:未配药 1:配药中 2:已发药)',
   `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '开具时间',
   PRIMARY KEY (`id`),
@@ -101,11 +97,17 @@ CREATE TABLE IF NOT EXISTS `t_consultation_session` (
   KEY `idx_patient_id` (`patient_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='AI问诊会话表';
 
--- 8. 处方审核字段迁移（已有数据库升级用）
--- ALTER TABLE `t_prescription`
---   ADD COLUMN `pharmacist_id` bigint(20) DEFAULT NULL COMMENT '审核药师ID' AFTER `audit_status`,
---   ADD COLUMN `audit_comments` varchar(500) DEFAULT NULL COMMENT '审核意见' AFTER `pharmacist_id`,
---   ADD COLUMN `audit_time` datetime DEFAULT NULL COMMENT '审核时间' AFTER `audit_comments`;
+-- 6.1 AI问诊会话消息表
+CREATE TABLE IF NOT EXISTS `t_consultation_message` (
+  `id` bigint(20) NOT NULL AUTO_INCREMENT COMMENT '消息ID',
+  `session_id` bigint(20) NOT NULL COMMENT '所属会话ID',
+  `role` varchar(20) NOT NULL COMMENT '消息角色 (user/assistant)',
+  `content` text NOT NULL COMMENT '消息内容',
+  `citations` json DEFAULT NULL COMMENT 'RAG引用来源(JSON数组，仅assistant消息)',
+  `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  PRIMARY KEY (`id`),
+  KEY `idx_session_id` (`session_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='AI问诊会话消息表';
 
 -- 7. 处方明细表
 CREATE TABLE IF NOT EXISTS `t_prescription_item` (

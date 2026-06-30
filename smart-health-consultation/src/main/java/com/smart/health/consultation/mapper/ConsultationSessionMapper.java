@@ -3,8 +3,6 @@ package com.smart.health.consultation.mapper;
 import com.smart.health.consultation.entity.ConsultationSession;
 import org.apache.ibatis.annotations.*;
 
-import java.util.List;
-
 /**
  * AI问诊会话Mapper
  */
@@ -20,25 +18,11 @@ public interface ConsultationSessionMapper {
     int insert(ConsultationSession session);
 
     /**
-     * 根据ID查询
-     */
-    @Select("SELECT id, session_sn, patient_id, draft_id, symptom_draft, chat_log, create_time, update_time " +
-            "FROM t_consultation_session WHERE id = #{id}")
-    ConsultationSession selectById(@Param("id") Long id);
-
-    /**
      * 根据会话编号查询
      */
     @Select("SELECT id, session_sn, patient_id, draft_id, symptom_draft, chat_log, create_time, update_time " +
             "FROM t_consultation_session WHERE session_sn = #{sessionSn}")
     ConsultationSession selectBySessionSn(@Param("sessionSn") String sessionSn);
-
-    /**
-     * 查询患者的所有问诊会话（按创建时间倒序）
-     */
-    @Select("SELECT id, session_sn, patient_id, draft_id, symptom_draft, chat_log, create_time, update_time " +
-            "FROM t_consultation_session WHERE patient_id = #{patientId} ORDER BY create_time DESC")
-    List<ConsultationSession> selectByPatientId(@Param("patientId") Long patientId);
 
     /**
      * 更新对话日志

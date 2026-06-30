@@ -26,7 +26,6 @@ public enum ResultCode {
     USER_NOT_FOUND(1002, "用户不存在"),
     PASSWORD_ERROR(1003, "密码错误"),
     PHONE_EXISTS(1004, "手机号已注册"),
-    ID_CARD_EXISTS(1005, "身份证号已注册"),
 
     // 挂号相关 2001-2999
     SCHEDULE_NOT_FOUND(2001, "排班信息不存在"),
@@ -38,7 +37,6 @@ public enum ResultCode {
     PRESCRIPTION_NOT_FOUND(3001, "处方不存在"),
     STOCK_NOT_ENOUGH(3002, "药品库存不足"),
     AUDIT_STATUS_ERROR(3003, "处方审核状态异常"),
-    PRESCRIPTION_ALREADY_AUDITED(3004, "处方已审核，不可重复操作"),
 
     // 问诊相关 4001-4999
     SESSION_NOT_FOUND(4001, "问诊会话不存在"),
