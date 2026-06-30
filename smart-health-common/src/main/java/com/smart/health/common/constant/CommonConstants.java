@@ -26,8 +26,23 @@ public class CommonConstants {
     /** RabbitMQ Routing Key */
     public static final String MQ_ROUTING_KEY_ORDER_CREATE = "order.create";
 
+    /** RabbitMQ 死信交换机 */
+    public static final String MQ_DLX_REGISTRATION = "dlx.registration";
+
+    /** RabbitMQ 死信队列 */
+    public static final String MQ_DLQ_REGISTRATION = "queue.registration.dlq";
+
+    /** RabbitMQ 死信 Routing Key */
+    public static final String MQ_ROUTING_KEY_DLQ = "order.dlq";
+
+    /** 死信队列消息过期时间（毫秒）- 30分钟 */
+    public static final int DLQ_MESSAGE_TTL_MS = 1800000;
+
     /** 挂号订单号前缀 */
     public static final String ORDER_SN_PREFIX = "REG_";
+
+    /** Redis Key 前缀 - 订单号计数器 */
+    public static final String ORDER_SN_COUNTER_PREFIX = "order:sn:counter:";
 
     /** 处方编号前缀（旧格式） */
     public static final String PRESCRIPTION_SN_PREFIX = "PRE_";

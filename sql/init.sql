@@ -18,7 +18,8 @@ CREATE TABLE IF NOT EXISTS `t_patient` (
   `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '注册时间',
   PRIMARY KEY (`id`),
   UNIQUE KEY `uk_username` (`username`),
-  UNIQUE KEY `uk_id_card` (`id_card`)
+  UNIQUE KEY `uk_id_card` (`id_card`),
+  UNIQUE KEY `uk_phone` (`phone`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='患者用户表';
 
 -- 2. 医生排班号源表

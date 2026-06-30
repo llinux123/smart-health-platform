@@ -36,4 +36,14 @@ public interface RagRetrievalService {
      * @return 引用来源列表
      */
     List<ConsultStreamResponse.Citation> retrieveCitations(String query, int topK);
+
+    /**
+     * 导入医学知识文档到 ES 知识库
+     *
+     * @param title    文档标题
+     * @param content  文档内容
+     * @param category 分类（科室）
+     * @return 导入成功条数
+     */
+    int importDocument(String title, String content, String category);
 }

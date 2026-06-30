@@ -6,6 +6,7 @@
 /home/muxin/codebase/project/smart-health-consultation/src/main/java/com/smart/health/consultation/dto/SessionVO.java
 /home/muxin/codebase/project/smart-health-consultation/src/main/java/com/smart/health/consultation/dto/ConsultStreamResponse.java
 /home/muxin/codebase/project/smart-health-consultation/src/main/java/com/smart/health/consultation/controller/AiConsultController.java
+/home/muxin/codebase/project/smart-health-consultation/src/main/java/com/smart/health/consultation/dto/KnowledgeImportRequest.java
 /home/muxin/codebase/project/smart-health-consultation/src/main/java/com/smart/health/consultation/dto/ConsultStreamRequest.java
 /home/muxin/codebase/project/smart-health-consultation/src/main/java/com/smart/health/consultation/service/impl/MultimodalServiceImpl.java
 /home/muxin/codebase/project/smart-health-consultation/src/main/java/com/smart/health/consultation/config/MedicalKnowledgeInitializer.java

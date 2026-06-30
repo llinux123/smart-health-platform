@@ -38,6 +38,9 @@ spring:
       chat:
         options:
           model: gpt-4o
+      embedding:
+        options:
+          model: text-embedding-ada-002
 
   # Jackson
   jackson:

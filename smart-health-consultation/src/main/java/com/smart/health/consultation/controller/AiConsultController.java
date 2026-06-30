@@ -3,11 +3,13 @@ package com.smart.health.consultation.controller;
 import com.smart.health.common.constant.CommonConstants;
 import com.smart.health.common.result.Result;
 import com.smart.health.consultation.dto.ConsultStreamRequest;
+import com.smart.health.consultation.dto.KnowledgeImportRequest;
 import com.smart.health.consultation.dto.MultimodalAnalyzeResponse;
 import com.smart.health.consultation.dto.SessionHistoryVO;
 import com.smart.health.consultation.dto.SessionVO;
 import com.smart.health.consultation.service.ConsultationService;
 import com.smart.health.consultation.service.MultimodalService;
+import com.smart.health.consultation.service.RagRetrievalService;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
@@ -39,6 +41,7 @@ public class AiConsultController {
 
     private final MultimodalService multimodalService;
     private final ConsultationService consultationService;
+    private final RagRetrievalService ragRetrievalService;
 
     @Value("${jwt.secret}")
     private String jwtSecret;
@@ -113,7 +116,18 @@ public class AiConsultController {
     }
 
     /**
-     * 从JWT token中提取patientId
+     * 导入医学知识文档到 ES 知识库
+     */
+    @PostMapping("/knowledge/import")
+    @Operation(summary = "导入医学知识", description = "导入医学知识文档到 ES 知识库，自动生成 Embedding 向量")
+    public Result<Integer> importKnowledge(@RequestBody KnowledgeImportRequest request) {
+        int count = ragRetrievalService.importDocument(
+                request.getTitle(), request.getContent(), request.getCategory());
+        return Result.ok(count);
+    }
+    
+    /**
+     * 从 JWT token 中提取patientId
      */
     private Long extractPatientId(String bearerToken) {
         if (!StringUtils.hasText(bearerToken) || !bearerToken.startsWith(CommonConstants.TOKEN_PREFIX)) {

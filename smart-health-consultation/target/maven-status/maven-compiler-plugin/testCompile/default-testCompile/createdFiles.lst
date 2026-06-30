@@ -1,4 +1,6 @@
 com/smart/health/consultation/service/ConsultationServiceImplTest.class
+com/smart/health/consultation/service/RagRetrievalServiceImplTest.class
+com/smart/health/consultation/controller/AiConsultControllerTest$KnowledgeImport.class
 com/smart/health/consultation/service/ConsultationServiceImplTest$ListSessions.class
 com/smart/health/consultation/controller/AiConsultControllerTest$SessionManagement.class
 com/smart/health/consultation/service/ConsultationServiceImplTest$CreateSession.class

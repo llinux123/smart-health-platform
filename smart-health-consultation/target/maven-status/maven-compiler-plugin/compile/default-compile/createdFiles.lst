@@ -9,6 +9,7 @@ com/smart/health/consultation/service/MultimodalService.class
 com/smart/health/consultation/config/FileUploadConfig.class
 com/smart/health/consultation/controller/AiConsultController.class
 com/smart/health/consultation/service/ConsultationService.class
+com/smart/health/consultation/dto/KnowledgeImportRequest.class
 com/smart/health/consultation/dto/SessionVO$SessionVOBuilder.class
 com/smart/health/consultation/package-info.class
 com/smart/health/consultation/mapper/ConsultationSessionMapper.class

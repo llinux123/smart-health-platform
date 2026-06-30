@@ -1,0 +1,172 @@
+<template>
+  <div class="seckill-page page-container">
+    <van-nav-bar title="确认挂号" left-arrow @click-left="$router.back()" />
+
+    <div class="seckill-content">
+      <div class="order-info card">
+        <h3 class="card-title">挂号信息确认</h3>
+        <van-cell title="科室" :value="scheduleInfo.deptName" />
+        <van-cell title="出诊日期" :value="formatDate(scheduleInfo.workDate)" />
+        <van-cell title="班次" :value="scheduleInfo.shiftName || getShiftName(scheduleInfo.shift)" />
+        <van-cell title="挂号费" :value="formatMoney(scheduleInfo.price)" value-class="price-cell" />
+      </div>
+
+      <van-notice-bar
+        left-icon="warning-o"
+        text="挂号成功后请在 5 分钟内完成支付，超时将自动取消"
+      />
+
+      <div class="seckill-actions">
+        <van-button
+          type="primary"
+          block
+          size="large"
+          :loading="submitting"
+          loading-text="抢号中..."
+          :disabled="submitted"
+          @click="handleSeckill"
+        >
+          {{ submitted ? '已提交' : '确认抢号' }}
+        </van-button>
+      </div>
+
+      <!-- 抢号结果 -->
+      <div v-if="result" class="result-card card">
+        <div class="result-icon" :class="result.success ? 'result-success' : 'result-error'">
+          <van-icon :name="result.success ? 'checked' : 'cross'" size="48" />
+        </div>
+        <h3 class="result-title">{{ result.success ? '抢号成功' : '抢号失败' }}</h3>
+        <p class="result-subtitle">{{ result.message }}</p>
+        <div class="result-footer">
+          <van-button v-if="result.success" type="primary" @click="goToOrder">
+            查看订单
+          </van-button>
+          <van-button v-else plain type="primary" @click="handleSeckill">
+            再试一次
+          </van-button>
+        </div>
+      </div>
+    </div>
+  </div>
+</template>
+
+<script setup>
+import { ref, onMounted, reactive } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
+import { showToast } from 'vant'
+import { seckill } from '@/api/registration'
+import { useUserStore } from '@/stores/user'
+import { formatDate, formatMoney, getShiftName } from '@/utils/format'
+
+const route = useRoute()
+const router = useRouter()
+const userStore = useUserStore()
+
+const scheduleId = Number(route.params.scheduleId)
+const submitting = ref(false)
+const submitted = ref(false)
+const result = ref(null)
+
+const scheduleInfo = reactive({
+  deptName: '',
+  workDate: '',
+  shift: 0,
+  shiftName: '',
+  price: 0
+})
+
+onMounted(() => {
+  // 从路由 query 或 mock 数据获取排班信息
+  scheduleInfo.deptName = route.query.deptName || '皮肤科'
+  scheduleInfo.workDate = route.query.workDate || '2026-06-30'
+  scheduleInfo.shift = Number(route.query.shift) || 1
+  scheduleInfo.shiftName = route.query.shiftName || '上午'
+  scheduleInfo.price = Number(route.query.price) || 50
+})
+
+async function handleSeckill() {
+  submitting.value = true
+  result.value = null
+  try {
+    const response = await seckill({
+      scheduleId,
+      patientId: userStore.patientId
+    })
+    submitted.value = true
+    result.value = {
+      success: true,
+      message: `订单号：${response.orderSn}`,
+      orderSn: response.orderSn
+    }
+  } catch (err) {
+    result.value = {
+      success: false,
+      message: err.message || '抢号失败，请稍后重试'
+    }
+  } finally {
+    submitting.value = false
+  }
+}
+
+function goToOrder() {
+  if (result.value?.orderSn) {
+    router.push(`/registration/orders/${result.value.orderSn}`)
+  }
+}
+</script>
+
+<style scoped>
+.seckill-content {
+  padding: 16px;
+}
+
+.card-title {
+  font-size: 16px;
+  font-weight: 500;
+  margin-bottom: 12px;
+}
+
+.price-cell {
+  color: #F5222D;
+  font-weight: bold;
+}
+
+.seckill-actions {
+  margin: 24px 0;
+}
+
+.result-card {
+  margin-top: 16px;
+  text-align: center;
+  padding: 24px 16px;
+}
+
+.result-icon {
+  margin-bottom: 16px;
+}
+
+.result-success {
+  color: #07c160;
+}
+
+.result-error {
+  color: #ee0a24;
+}
+
+.result-title {
+  font-size: 18px;
+  font-weight: 500;
+  margin-bottom: 8px;
+  color: #333;
+}
+
+.result-subtitle {
+  font-size: 14px;
+  color: #666;
+  margin-bottom: 16px;
+}
+
+.result-footer {
+  margin-top: 16px;
+}
+</style>
