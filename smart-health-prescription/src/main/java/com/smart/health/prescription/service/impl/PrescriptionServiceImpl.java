@@ -78,6 +78,9 @@ public class PrescriptionServiceImpl implements PrescriptionService {
             item.setPharmacyId(medicine.getPharmacyId());
             item.setQuantity(medicine.getQuantity());
             item.setUnit(medicine.getUnit());
+            item.setSpec(medicine.getSpec());
+            item.setUsage(medicine.getUsage());
+            item.setPrice(medicine.getPrice());
             items.add(item);
         }
 
@@ -189,7 +192,10 @@ public class PrescriptionServiceImpl implements PrescriptionService {
     public List<PrescriptionVO> listPendingAudit() {
         List<Prescription> prescriptions = prescriptionMapper.selectByAuditStatus(0);
         return prescriptions.stream()
-                .map(p -> buildPrescriptionVO(p, null))
+                .map(p -> {
+                    List<PrescriptionItem> items = prescriptionItemMapper.selectByPrescriptionId(p.getId());
+                    return buildPrescriptionVO(p, items);
+                })
                 .toList();
     }
 
@@ -224,9 +230,13 @@ public class PrescriptionServiceImpl implements PrescriptionService {
         if (items != null && !items.isEmpty()) {
             List<PrescriptionItemVO> itemVOs = items.stream()
                     .map(item -> PrescriptionItemVO.builder()
+                            .id(item.getId())
                             .medicineName(item.getMedicineName())
                             .quantity(item.getQuantity())
                             .unit(item.getUnit())
+                            .spec(item.getSpec())
+                            .usage(item.getUsage())
+                            .price(item.getPrice())
                             .build())
                     .toList();
             builder.items(itemVOs);

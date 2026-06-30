@@ -1,8 +1,10 @@
 package com.smart.health.registration.mapper;
 
+import com.smart.health.registration.dto.OrderVO;
 import com.smart.health.registration.entity.RegistrationOrder;
 import org.apache.ibatis.annotations.*;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 /**
@@ -26,4 +28,61 @@ public interface RegistrationOrderMapper {
 
     @Select("SELECT COALESCE(MAX(sequence_number), 0) FROM t_registration_order WHERE schedule_id = #{scheduleId}")
     int selectMaxSequenceNumber(@Param("scheduleId") Long scheduleId);
+
+    /**
+     * 查询订单列表（JOIN 排班及医生表，返回 OrderVO）
+     */
+    @Select("SELECT o.order_sn, o.patient_id, o.schedule_id, " +
+            "s.dept_name, d.name AS doctor_name, s.work_date, s.shift, " +
+            "CASE s.shift WHEN 1 THEN '上午' WHEN 2 THEN '下午' ELSE '未知' END AS shift_name, " +
+            "s.price AS fee, o.status, o.create_time, o.pay_time " +
+            "FROM t_registration_order o " +
+            "LEFT JOIN t_doctor_schedule s ON o.schedule_id = s.id " +
+            "LEFT JOIN t_doctor d ON s.doctor_id = d.id " +
+            "WHERE o.patient_id = #{patientId} " +
+            "ORDER BY o.create_time DESC")
+    List<OrderVO> selectOrderVOByPatientId(@Param("patientId") Long patientId);
+
+    /**
+     * 根据订单号查询订单（JOIN 排班及医生表，返回 OrderVO）
+     */
+    @Select("SELECT o.order_sn, o.patient_id, o.schedule_id, " +
+            "s.dept_name, d.name AS doctor_name, s.work_date, s.shift, " +
+            "CASE s.shift WHEN 1 THEN '上午' WHEN 2 THEN '下午' ELSE '未知' END AS shift_name, " +
+            "s.price AS fee, o.status, o.create_time, o.pay_time " +
+            "FROM t_registration_order o " +
+            "LEFT JOIN t_doctor_schedule s ON o.schedule_id = s.id " +
+            "LEFT JOIN t_doctor d ON s.doctor_id = d.id " +
+            "WHERE o.order_sn = #{orderSn}")
+    OrderVO selectOrderVOByOrderSn(@Param("orderSn") String orderSn);
+
+    /**
+     * 更新订单状态（仅允许从指定源状态流转，保证幂等性）
+     *
+     * @param orderSn     订单号
+     * @param targetStatus 目标状态
+     * @param fromStatuses 允许的源状态列表
+     * @return 受影响行数
+     */
+    @Update("<script>" +
+            "UPDATE t_registration_order SET status = #{targetStatus} " +
+            "WHERE order_sn = #{orderSn} AND status IN " +
+            "<foreach collection='fromStatuses' item='s' open='(' separator=',' close=')'>#{s}</foreach>" +
+            "</script>")
+    int updateStatus(@Param("orderSn") String orderSn,
+                     @Param("targetStatus") int targetStatus,
+                     @Param("fromStatuses") List<Integer> fromStatuses);
+
+    /**
+     * 更新订单状态并记录支付时间
+     */
+    @Update("<script>" +
+            "UPDATE t_registration_order SET status = #{targetStatus}, pay_time = #{payTime} " +
+            "WHERE order_sn = #{orderSn} AND status IN " +
+            "<foreach collection='fromStatuses' item='s' open='(' separator=',' close=')'>#{s}</foreach>" +
+            "</script>")
+    int updateStatusWithPayTime(@Param("orderSn") String orderSn,
+                                @Param("targetStatus") int targetStatus,
+                                @Param("fromStatuses") List<Integer> fromStatuses,
+                                @Param("payTime") LocalDateTime payTime);
 }

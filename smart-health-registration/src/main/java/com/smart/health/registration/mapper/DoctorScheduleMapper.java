@@ -26,14 +26,15 @@ public interface DoctorScheduleMapper {
     int insert(DoctorSchedule schedule);
 
     /**
-     * 查询可用排班列表（剩余号源 > 0）
+     * 查询可用排班列表（剩余号源 > 0），JOIN医生表获取医生姓名
      */
     @Select("<script>" +
-            "SELECT id, doctor_id, dept_name, work_date, shift, total_count, visible_count, price, version " +
-            "FROM t_doctor_schedule WHERE visible_count &gt; 0" +
-            "<if test='deptName != null and deptName != \"\"'> AND dept_name = #{deptName}</if>" +
-            "<if test='workDate != null'> AND work_date = #{workDate}</if>" +
-            " ORDER BY work_date ASC, shift ASC" +
+            "SELECT s.id, s.doctor_id, d.name AS doctor_name, s.dept_name, s.work_date, s.shift, s.total_count, s.visible_count, s.price, s.version " +
+            "FROM t_doctor_schedule s LEFT JOIN t_doctor d ON s.doctor_id = d.id " +
+            "WHERE s.visible_count &gt; 0" +
+            "<if test='deptName != null and deptName != \"\"'> AND s.dept_name = #{deptName}</if>" +
+            "<if test='workDate != null'> AND s.work_date = #{workDate}</if>" +
+            " ORDER BY s.work_date ASC, s.shift ASC" +
             "</script>")
     List<DoctorSchedule> selectAvailableList(@Param("deptName") String deptName, @Param("workDate") LocalDate workDate);
 

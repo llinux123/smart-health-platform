@@ -22,7 +22,20 @@ CREATE TABLE IF NOT EXISTS `t_patient` (
   UNIQUE KEY `uk_phone` (`phone`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='患者用户表';
 
--- 2. 医生排班号源表
+-- 2. 医生信息表
+CREATE TABLE IF NOT EXISTS `t_doctor` (
+  `id` bigint(20) NOT NULL AUTO_INCREMENT COMMENT '医生ID',
+  `name` varchar(50) NOT NULL COMMENT '医生姓名',
+  `title` varchar(50) NOT NULL COMMENT '职称（如：主任医师、副主任医师、主治医师）',
+  `avatar` varchar(255) DEFAULT NULL COMMENT '头像URL',
+  `dept_name` varchar(50) NOT NULL COMMENT '所属科室',
+  `specialty` varchar(500) DEFAULT NULL COMMENT '擅长领域',
+  `intro` text DEFAULT NULL COMMENT '医生简介',
+  `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='医生信息表';
+
+-- 3. 医生排班号源表
 CREATE TABLE IF NOT EXISTS `t_doctor_schedule` (
   `id` bigint(20) NOT NULL AUTO_INCREMENT COMMENT '排班ID',
   `doctor_id` bigint(20) NOT NULL COMMENT '医生ID',
@@ -116,6 +129,9 @@ CREATE TABLE IF NOT EXISTS `t_prescription_item` (
   `pharmacy_id` bigint(20) NOT NULL COMMENT '院区药房ID',
   `quantity` int(11) NOT NULL DEFAULT '1' COMMENT '数量',
   `unit` varchar(20) NOT NULL COMMENT '单位',
+  `spec` varchar(100) DEFAULT NULL COMMENT '规格',
+  `usage` varchar(200) DEFAULT NULL COMMENT '用法用量',
+  `price` decimal(10,2) DEFAULT NULL COMMENT '单价',
   PRIMARY KEY (`id`),
   KEY `idx_prescription_id` (`prescription_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='处方明细表';

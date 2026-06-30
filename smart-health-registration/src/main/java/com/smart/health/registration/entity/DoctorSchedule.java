@@ -17,6 +17,9 @@ public class DoctorSchedule {
     /** 医生ID */
     private Long doctorId;
 
+    /** 医生姓名（非数据库字段，通过JOIN查询填充） */
+    private String doctorName;
+
     /** 科室名称 */
     private String deptName;
 

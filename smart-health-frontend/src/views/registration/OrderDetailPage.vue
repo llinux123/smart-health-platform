@@ -7,12 +7,19 @@
     <template v-else-if="order">
       <!-- 状态进度 -->
       <div class="status-bar">
-        <van-steps :active="statusStep" active-color="#1890FF">
-          <van-step>排队中</van-step>
-          <van-step>待支付</van-step>
-          <van-step>已支付</van-step>
-          <van-step>已就诊</van-step>
-        </van-steps>
+        <template v-if="order.status === 4">
+          <van-steps :active="0" active-color="#EE0A24">
+            <van-step>已退号</van-step>
+          </van-steps>
+        </template>
+        <template v-else>
+          <van-steps :active="statusStep" active-color="#1890FF">
+            <van-step>排队中</van-step>
+            <van-step>待支付</van-step>
+            <van-step>已支付</van-step>
+            <van-step>已就诊</van-step>
+          </van-steps>
+        </template>
       </div>
 
       <!-- 订单信息 -->
@@ -56,7 +63,7 @@
 import { ref, computed, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import { showToast, showSuccessToast, showConfirmDialog } from 'vant'
-import { getOrderDetail } from '@/api/registration'
+import { getOrderDetail, cancelOrder, payOrder } from '@/api/registration'
 import { formatDate, formatDateTime, formatMoney } from '@/utils/format'
 
 const route = useRoute()
@@ -66,7 +73,7 @@ const loading = ref(true)
 
 const statusStep = computed(() => {
   if (!order.value) return 0
-  const map = { 0: 0, 1: 1, 2: 2, 3: 3, 4: 0 }
+  const map = { 0: 0, 1: 1, 2: 2, 3: 3 }
   return map[order.value.status] ?? 0
 })
 
@@ -80,18 +87,27 @@ onMounted(async () => {
   }
 })
 
-function handlePay() {
-  showSuccessToast('支付成功（Mock）')
-  if (order.value) order.value.status = 2
+async function handlePay() {
+  try {
+    showToast({ message: '支付中...', forbidClick: true, duration: 0 })
+    await payOrder(orderSn)
+    showSuccessToast('支付成功')
+    // 重新加载订单数据
+    order.value = await getOrderDetail(orderSn)
+  } catch (err) {
+    // 错误已在拦截器中处理
+  }
 }
 
 async function handleCancel() {
   try {
     await showConfirmDialog({ title: '确认取消', message: '确定要取消该订单吗？' })
+    await cancelOrder(orderSn)
     showSuccessToast('订单已取消')
-    if (order.value) order.value.status = 4
-  } catch {
-    // 用户取消
+    // 重新加载订单数据
+    order.value = await getOrderDetail(orderSn)
+  } catch (err) {
+    // 用户取消弹窗 或 请求错误（拦截器已处理）
   }
 }
 </script>

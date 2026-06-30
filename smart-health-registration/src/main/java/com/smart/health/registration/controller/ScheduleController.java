@@ -1,11 +1,11 @@
 package com.smart.health.registration.controller;
 
 import com.smart.health.common.result.Result;
+import com.smart.health.registration.dto.OrderVO;
 import com.smart.health.registration.dto.ScheduleCreateRequest;
 import com.smart.health.registration.dto.ScheduleVO;
 import com.smart.health.registration.dto.SeckillRequest;
 import com.smart.health.registration.dto.SeckillResponse;
-import com.smart.health.registration.entity.RegistrationOrder;
 import com.smart.health.registration.service.RegistrationOrderService;
 import com.smart.health.registration.service.ScheduleService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -57,19 +57,35 @@ public class ScheduleController {
         return Result.ok(response);
     }
 
-    @Operation(summary = "根据订单号查询订单")
+    @Operation(summary = "根据订单号查询订单详情（含排班及医生信息）")
     @GetMapping("/api/v1/registration/order/detail")
-    public Result<RegistrationOrder> getOrderDetail(
+    public Result<OrderVO> getOrderDetail(
             @Parameter(description = "订单号") @RequestParam String orderSn) {
-        RegistrationOrder order = registrationOrderService.getByOrderSn(orderSn);
+        OrderVO order = registrationOrderService.getOrderVOByOrderSn(orderSn);
         return Result.ok(order);
     }
 
-    @Operation(summary = "查询患者的挂号订单列表")
+    @Operation(summary = "查询患者的挂号订单列表（含排班及医生信息）")
     @GetMapping("/api/v1/registration/order/list")
-    public Result<List<RegistrationOrder>> listOrders(
+    public Result<List<OrderVO>> listOrders(
             @Parameter(description = "患者 ID") @RequestParam Long patientId) {
-        List<RegistrationOrder> orders = registrationOrderService.listByPatientId(patientId);
+        List<OrderVO> orders = registrationOrderService.listOrderVOByPatientId(patientId);
         return Result.ok(orders);
+    }
+
+    @Operation(summary = "取消订单")
+    @PostMapping("/api/v1/registration/order/cancel")
+    public Result<Void> cancelOrder(
+            @Parameter(description = "订单号") @RequestParam String orderSn) {
+        registrationOrderService.cancelOrder(orderSn);
+        return Result.ok();
+    }
+
+    @Operation(summary = "支付订单")
+    @PostMapping("/api/v1/registration/order/pay")
+    public Result<Void> payOrder(
+            @Parameter(description = "订单号") @RequestParam String orderSn) {
+        registrationOrderService.payOrder(orderSn);
+        return Result.ok();
     }
 }

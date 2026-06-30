@@ -9,6 +9,7 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.math.BigDecimal;
 import java.util.List;
 
 /**
@@ -65,5 +66,14 @@ public class PrescriptionIssueRequest {
         @NotBlank(message = "单位不能为空")
         @Schema(description = "单位")
         private String unit;
+
+        @Schema(description = "规格")
+        private String spec;
+
+        @Schema(description = "用法用量")
+        private String usage;
+
+        @Schema(description = "单价")
+        private BigDecimal price;
     }
 }

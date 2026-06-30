@@ -30,9 +30,12 @@ public enum ResultCode {
 
     // 挂号相关 2001-2999
     SCHEDULE_NOT_FOUND(2001, "排班信息不存在"),
+    DOCTOR_NOT_FOUND(2005, "医生不存在"),
     STOCK_EMPTY(2002, "号源已抢完"),
     REPEAT_SECKILL(2003, "请勿重复抢号"),
     SECKILL_FAIL(2004, "抢号失败，请重试"),
+    ORDER_NOT_FOUND(2006, "订单不存在"),
+    ORDER_STATUS_ERROR(2007, "订单状态异常，无法操作"),
 
     // 处方相关 3001-3999
     PRESCRIPTION_NOT_FOUND(3001, "处方不存在"),

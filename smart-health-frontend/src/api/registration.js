@@ -1,10 +1,11 @@
 import request from './request'
-import { isMockEnabled } from '@/mock'
-import { mockListSchedules, mockSeckill, mockGetOrderDetail, mockListOrders } from '@/mock/registration'
 
 export function listSchedules(params) {
-  if (isMockEnabled()) return mockListSchedules(params)
   return request.get('/api/v1/schedule/list', { params })
+}
+
+export function getDoctorDetail(id) {
+  return request.get(`/api/v1/doctor/${id}`)
 }
 
 export function createSchedule(data) {
@@ -12,16 +13,21 @@ export function createSchedule(data) {
 }
 
 export function seckill(data) {
-  if (isMockEnabled()) return mockSeckill(data)
   return request.post('/api/v1/registration/seckill', data)
 }
 
 export function getOrderDetail(orderSn) {
-  if (isMockEnabled()) return mockGetOrderDetail()
   return request.get('/api/v1/registration/order/detail', { params: { orderSn } })
 }
 
 export function listOrders(patientId) {
-  if (isMockEnabled()) return mockListOrders()
   return request.get('/api/v1/registration/order/list', { params: { patientId } })
+}
+
+export function cancelOrder(orderSn) {
+  return request.post('/api/v1/registration/order/cancel', null, { params: { orderSn } })
+}
+
+export function payOrder(orderSn) {
+  return request.post('/api/v1/registration/order/pay', null, { params: { orderSn } })
 }

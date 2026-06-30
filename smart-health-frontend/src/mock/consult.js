@@ -44,7 +44,7 @@ export function mockGetSessionHistory() {
     {
       role: 'user',
       content: '我上传了一张皮肤照片，帮我分析一下',
-      createTime: '2026-06-28 14:30:00'
+      timestamp: '2026-06-28T14:30:00'
     },
     {
       role: 'assistant',
@@ -53,18 +53,18 @@ export function mockGetSessionHistory() {
         { title: '湿疹诊疗指南', category: '临床指南', snippet: '湿疹是一种常见的炎症性皮肤病，表现为红斑、丘疹、水疱...' },
         { title: '体癣诊断标准', category: '诊断标准', snippet: '体癣由真菌感染引起，典型表现为环形红斑...' }
       ],
-      createTime: '2026-06-28 14:30:05'
+      timestamp: '2026-06-28T14:30:05'
     },
     {
       role: 'user',
       content: '湿疹和体癣有什么区别？',
-      createTime: '2026-06-28 14:31:00'
+      timestamp: '2026-06-28T14:31:00'
     },
     {
       role: 'assistant',
       content: '湿疹和体癣的主要区别：\n\n- **病因**：湿疹是过敏性炎症，体癣是真菌感染\n- **传染性**：湿疹不传染，体癣有传染性\n- **外观**：湿疹边界不清，体癣多为环形红斑\n- **确诊**：需要做真菌镜检来区分\n\n建议您尽早检查，以便对症用药。',
       citations: [],
-      createTime: '2026-06-28 14:31:10'
+      timestamp: '2026-06-28T14:31:10'
     }
   ])
 }

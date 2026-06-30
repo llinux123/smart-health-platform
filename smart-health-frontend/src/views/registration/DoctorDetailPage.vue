@@ -37,8 +37,7 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { listSchedules } from '@/api/registration'
-import { doctorInfoMap } from '@/mock/registration'
+import { listSchedules, getDoctorDetail } from '@/api/registration'
 import ScheduleCard from '@/components/ScheduleCard.vue'
 import EmptyState from '@/components/EmptyState.vue'
 
@@ -46,12 +45,16 @@ const route = useRoute()
 const router = useRouter()
 const doctorId = Number(route.params.id)
 
-const doctor = ref(doctorInfoMap[doctorId] || { name: '未知医生', title: '主治医师', specialty: '', intro: '', deptName: '' })
+const doctor = ref({ name: '未知医生', title: '主治医师', specialty: '', intro: '', deptName: '' })
 const schedules = ref([])
 
 onMounted(async () => {
   try {
-    const allSchedules = await listSchedules()
+    const [doctorData, allSchedules] = await Promise.all([
+      getDoctorDetail(doctorId),
+      listSchedules()
+    ])
+    doctor.value = { ...doctorData, deptName: '' }
     schedules.value = allSchedules.filter(s => s.doctorId === doctorId)
     if (schedules.value.length > 0) {
       doctor.value.deptName = schedules.value[0].deptName

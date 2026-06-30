@@ -145,9 +145,9 @@ public class ConsultationServiceImpl implements ConsultationService {
                                 emitter.send(SseEmitter.event().data("[DONE]"));
                                 emitter.complete();
 
-                                // 保存对话记录到会话
+                                // 保存对话记录到会话（含引用来源）
                                 saveChatTurn(session, chatHistory, request.getMessage(),
-                                        fullResponse.toString());
+                                        fullResponse.toString(), citations);
                                 log.info("问诊流式响应完成, sessionSn={}, 本轮回答长度={}",
                                         sessionSnRef.get(), fullResponse.length());
                             } catch (IOException e) {
@@ -214,10 +214,21 @@ public class ConsultationServiceImpl implements ConsultationService {
         List<Map<String, String>> chatLog = parseChatLog(session.getChatLog());
         List<SessionHistoryVO> history = new ArrayList<>();
         for (Map<String, String> turn : chatLog) {
+            List<ConsultStreamResponse.Citation> citations = null;
+            String citationsJson = turn.get("citations");
+            if (citationsJson != null && !citationsJson.isBlank()) {
+                try {
+                    citations = objectMapper.readValue(citationsJson,
+                            new TypeReference<List<ConsultStreamResponse.Citation>>() {});
+                } catch (JsonProcessingException e) {
+                    log.warn("解析 citations 失败, 跳过: {}", e.getMessage());
+                }
+            }
             history.add(SessionHistoryVO.builder()
                     .role(turn.get("role"))
                     .content(turn.get("content"))
                     .timestamp(turn.get("timestamp"))
+                    .citations(citations)
                     .build());
         }
         return history;
@@ -301,9 +312,12 @@ public class ConsultationServiceImpl implements ConsultationService {
 
     /**
      * 保存一轮对话（用户消息 + AI 回复）到会话的 chatLog
+     *
+     * @param citations AI 回复的引用来源（仅 assistant 消息使用）
      */
     private void saveChatTurn(ConsultationSession session, List<Map<String, String>> existingHistory,
-                               String userMessage, String assistantResponse) {
+                               String userMessage, String assistantResponse,
+                               List<ConsultStreamResponse.Citation> citations) {
         Map<String, String> userTurn = new LinkedHashMap<>();
         userTurn.put("role", "user");
         userTurn.put("content", userMessage);
@@ -314,6 +328,14 @@ public class ConsultationServiceImpl implements ConsultationService {
         assistantTurn.put("role", "assistant");
         assistantTurn.put("content", assistantResponse);
         assistantTurn.put("timestamp", LocalDateTime.now().toString());
+        // 将引用来源序列化为 JSON 字符串存入 chatLog
+        if (citations != null && !citations.isEmpty()) {
+            try {
+                assistantTurn.put("citations", objectMapper.writeValueAsString(citations));
+            } catch (JsonProcessingException e) {
+                log.warn("序列化 citations 失败, 跳过: {}", e.getMessage());
+            }
+        }
         existingHistory.add(assistantTurn);
 
         try {

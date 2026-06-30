@@ -48,6 +48,9 @@
         <van-field v-model="med.pharmacyId" label="药房ID" type="number" placeholder="药房ID" />
         <van-field v-model="med.quantity" label="数量" type="number" placeholder="数量" />
         <van-field v-model="med.unit" label="单位" placeholder="如：盒、支、瓶" />
+        <van-field v-model="med.spec" label="规格" placeholder="如：15g/支、0.5g*24粒" />
+        <van-field v-model="med.usage" label="用法用量" placeholder="如：口服，每日3次" />
+        <van-field v-model="med.price" label="单价" type="number" placeholder="如：25.50" />
       </div>
     </div>
 
@@ -69,7 +72,7 @@ const router = useRouter()
 const submitting = ref(false)
 
 function createEmptyMed() {
-  return { medicineId: '', medicineName: '', pharmacyId: '', quantity: '', unit: '' }
+  return { medicineId: '', medicineName: '', pharmacyId: '', quantity: '', unit: '', spec: '', usage: '', price: '' }
 }
 
 const form = ref({
@@ -108,7 +111,10 @@ async function onSubmit() {
         medicineName: m.medicineName,
         pharmacyId: Number(m.pharmacyId),
         quantity: Number(m.quantity),
-        unit: m.unit
+        unit: m.unit,
+        spec: m.spec || null,
+        usage: m.usage || null,
+        price: m.price ? Number(m.price) : null
       }))
     }
 

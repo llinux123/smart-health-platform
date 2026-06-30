@@ -29,4 +29,13 @@ public class PrescriptionItem {
 
     /** 单位 */
     private String unit;
+
+    /** 规格 */
+    private String spec;
+
+    /** 用法用量 */
+    private String usage;
+
+    /** 单价 */
+    private java.math.BigDecimal price;
 }

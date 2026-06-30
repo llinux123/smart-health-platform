@@ -11,20 +11,20 @@ import java.util.List;
 @Mapper
 public interface PrescriptionItemMapper {
 
-    @Insert("INSERT INTO t_prescription_item (prescription_id, medicine_id, medicine_name, pharmacy_id, quantity, unit) " +
-            "VALUES (#{prescriptionId}, #{medicineId}, #{medicineName}, #{pharmacyId}, #{quantity}, #{unit})")
+    @Insert("INSERT INTO t_prescription_item (prescription_id, medicine_id, medicine_name, pharmacy_id, quantity, unit, spec, `usage`, price) " +
+            "VALUES (#{prescriptionId}, #{medicineId}, #{medicineName}, #{pharmacyId}, #{quantity}, #{unit}, #{spec}, #{usage}, #{price})")
     @Options(useGeneratedKeys = true, keyProperty = "id")
     int insert(PrescriptionItem item);
 
     @Insert("<script>" +
-            "INSERT INTO t_prescription_item (prescription_id, medicine_id, medicine_name, pharmacy_id, quantity, unit) VALUES " +
+            "INSERT INTO t_prescription_item (prescription_id, medicine_id, medicine_name, pharmacy_id, quantity, unit, spec, `usage`, price) VALUES " +
             "<foreach collection='items' item='item' separator=','>" +
-            "(#{item.prescriptionId}, #{item.medicineId}, #{item.medicineName}, #{item.pharmacyId}, #{item.quantity}, #{item.unit})" +
+            "(#{item.prescriptionId}, #{item.medicineId}, #{item.medicineName}, #{item.pharmacyId}, #{item.quantity}, #{item.unit}, #{item.spec}, #{item.usage}, #{item.price})" +
             "</foreach>" +
             "</script>")
     int batchInsert(@Param("items") List<PrescriptionItem> items);
 
-    @Select("SELECT id, prescription_id, medicine_id, medicine_name, pharmacy_id, quantity, unit " +
+    @Select("SELECT id, prescription_id, medicine_id, medicine_name, pharmacy_id, quantity, unit, spec, `usage`, price " +
             "FROM t_prescription_item WHERE prescription_id = #{prescriptionId}")
     List<PrescriptionItem> selectByPrescriptionId(@Param("prescriptionId") Long prescriptionId);
 }

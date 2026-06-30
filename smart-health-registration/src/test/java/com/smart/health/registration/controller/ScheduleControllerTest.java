@@ -1,9 +1,9 @@
 package com.smart.health.registration.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.smart.health.registration.dto.OrderVO;
 import com.smart.health.registration.dto.SeckillRequest;
 import com.smart.health.registration.dto.SeckillResponse;
-import com.smart.health.registration.entity.RegistrationOrder;
 import com.smart.health.registration.service.RegistrationOrderService;
 import com.smart.health.registration.service.ScheduleService;
 import org.junit.jupiter.api.DisplayName;
@@ -14,7 +14,6 @@ import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 
-import java.math.BigDecimal;
 import java.util.Arrays;
 import java.util.List;
 
@@ -80,14 +79,13 @@ class ScheduleControllerTest {
     @DisplayName("查询订单详情 - 成功")
     void getOrderDetail_success() throws Exception {
         // Given
-        RegistrationOrder order = new RegistrationOrder();
+        OrderVO order = new OrderVO();
         order.setOrderSn("REG_20260629_000001");
         order.setPatientId(100L);
         order.setScheduleId(1L);
-        order.setAmount(new BigDecimal("50.00"));
         order.setStatus(0);
 
-        when(registrationOrderService.getByOrderSn("REG_20260629_000001")).thenReturn(order);
+        when(registrationOrderService.getOrderVOByOrderSn("REG_20260629_000001")).thenReturn(order);
 
         // When & Then
         mockMvc.perform(get("/api/v1/registration/order/detail")
@@ -102,16 +100,16 @@ class ScheduleControllerTest {
     @DisplayName("查询患者订单列表 - 成功")
     void listOrders_success() throws Exception {
         // Given
-        RegistrationOrder order1 = new RegistrationOrder();
+        OrderVO order1 = new OrderVO();
         order1.setOrderSn("REG_20260629_000001");
         order1.setPatientId(100L);
 
-        RegistrationOrder order2 = new RegistrationOrder();
+        OrderVO order2 = new OrderVO();
         order2.setOrderSn("REG_20260629_000002");
         order2.setPatientId(100L);
 
-        List<RegistrationOrder> orders = Arrays.asList(order1, order2);
-        when(registrationOrderService.listByPatientId(100L)).thenReturn(orders);
+        List<OrderVO> orders = Arrays.asList(order1, order2);
+        when(registrationOrderService.listOrderVOByPatientId(100L)).thenReturn(orders);
 
         // When & Then
         mockMvc.perform(get("/api/v1/registration/order/list")

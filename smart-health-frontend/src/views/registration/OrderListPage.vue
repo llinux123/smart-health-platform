@@ -8,7 +8,7 @@
       <EmptyState v-if="orders.length === 0" description="暂无挂号订单" action-text="去挂号" @action="$router.push('/registration/schedules')" />
 
       <div v-else class="order-list">
-        <div v-for="order in orders" :key="order.id" class="order-card card" @click="goToDetail(order)">
+        <div v-for="order in orders" :key="order.orderSn" class="order-card card" @click="goToDetail(order)">
           <div class="order-header">
             <span class="order-sn">{{ order.orderSn }}</span>
             <van-tag :type="getOrderStatus(order.status).color" size="medium">

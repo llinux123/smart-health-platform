@@ -1,10 +1,10 @@
 package com.smart.health.user.service;
 
+import com.smart.health.common.security.PatientUserDetails;
 import com.smart.health.user.entity.Patient;
 import com.smart.health.user.mapper.PatientMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
-import org.springframework.security.core.userdetails.User;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
@@ -28,7 +28,8 @@ public class PatientDetailsService implements UserDetailsService {
             throw new UsernameNotFoundException("用户不存在: " + username);
         }
 
-        return new User(
+        return new PatientUserDetails(
+                patient.getId(),
                 patient.getUsername(),
                 patient.getPassword(),
                 Collections.singletonList(new SimpleGrantedAuthority("ROLE_PATIENT"))

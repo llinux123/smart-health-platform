@@ -1,0 +1,1 @@
+import{aq as s}from"./index-BCy5WlDY.js";const a=()=>{var t;const{scopeId:o}=((t=s())==null?void 0:t.vnode)||{};return o?{[o]:""}:null},u=(t,o)=>{const e=t.__vccOpts||t;for(const[n,r]of o)e[n]=r;return e};export{u as _,a as u};

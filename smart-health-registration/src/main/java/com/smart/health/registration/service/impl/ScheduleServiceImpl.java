@@ -151,6 +151,7 @@ public class ScheduleServiceImpl implements ScheduleService {
         ScheduleVO vo = new ScheduleVO();
         vo.setId(schedule.getId());
         vo.setDoctorId(schedule.getDoctorId());
+        vo.setDoctorName(schedule.getDoctorName());
         vo.setDeptName(schedule.getDeptName());
         vo.setWorkDate(schedule.getWorkDate());
         vo.setShift(schedule.getShift());
