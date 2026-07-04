@@ -1,5 +1,7 @@
 package com.smart.health.registration.service;
 
+import com.smart.health.registration.config.ScheduleRedisConfig;
+import com.smart.health.registration.dto.OrderVO;
 import com.smart.health.registration.entity.DoctorSchedule;
 import com.smart.health.registration.entity.RegistrationOrder;
 import com.smart.health.registration.mapper.DoctorScheduleMapper;
@@ -16,7 +18,11 @@ import java.math.BigDecimal;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyList;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -32,13 +38,17 @@ class RegistrationOrderServiceImplTest {
     @Mock
     private DoctorScheduleMapper doctorScheduleMapper;
 
+    @Mock
+    private ScheduleRedisConfig scheduleRedisConfig;
+
     private RegistrationOrderServiceImpl registrationOrderService;
 
     @BeforeEach
     void setUp() {
         registrationOrderService = new RegistrationOrderServiceImpl(
                 registrationOrderMapper,
-                doctorScheduleMapper
+                doctorScheduleMapper,
+                scheduleRedisConfig
         );
     }
 
@@ -148,5 +158,128 @@ class RegistrationOrderServiceImplTest {
 
         // Then
         assertThat(result).hasSize(1);
+    }
+
+    @Test
+    @DisplayName("取消订单 - 恢复 Redis 库存 + DB 号源 + 移除幂等集合")
+    void cancelOrder_restoresInventoryAndRemovesFromSeckillSet() {
+        // Given
+        RegistrationOrder order = new RegistrationOrder();
+        order.setOrderSn("REG_20260629_000001");
+        order.setPatientId(100L);
+        order.setScheduleId(1L);
+        order.setStatus(1); // 待支付
+
+        when(registrationOrderMapper.selectByOrderSn("REG_20260629_000001")).thenReturn(order);
+        when(registrationOrderMapper.updateStatus("REG_20260629_000001", 4, List.of(0, 1))).thenReturn(1);
+
+        DoctorSchedule schedule = new DoctorSchedule();
+        schedule.setId(1L);
+        schedule.setVersion(2);
+        when(doctorScheduleMapper.selectById(1L)).thenReturn(schedule);
+        when(doctorScheduleMapper.incrementVisibleCount(1L, 2)).thenReturn(1);
+
+        // When
+        registrationOrderService.cancelOrder("REG_20260629_000001", 100L);
+
+        // Then
+        verify(scheduleRedisConfig).incrementStock(1L);
+        verify(doctorScheduleMapper).incrementVisibleCount(1L, 2);
+        verify(scheduleRedisConfig).removePatientFromSeckillSet(1L, 100L);
+    }
+
+    @Test
+    @DisplayName("取消订单 - 已是已退号状态幂等返回")
+    void cancelOrder_alreadyCancelled_idempotent() {
+        // Given
+        RegistrationOrder order = new RegistrationOrder();
+        order.setOrderSn("REG_20260629_000001");
+        order.setPatientId(100L);
+        order.setScheduleId(1L);
+        order.setStatus(4); // 已退号
+
+        when(registrationOrderMapper.selectByOrderSn("REG_20260629_000001")).thenReturn(order);
+
+        // When
+        registrationOrderService.cancelOrder("REG_20260629_000001", 100L);
+
+        // Then - 不应调用恢复库存
+        verify(scheduleRedisConfig, never()).incrementStock(any());
+        verify(scheduleRedisConfig, never()).removePatientFromSeckillSet(any(), any());
+    }
+
+    @Test
+    @DisplayName("取消订单 - patientId 不匹配时抛出 BusinessException")
+    void cancelOrder_patientIdMismatch_throwsException() {
+        // Given
+        RegistrationOrder order = new RegistrationOrder();
+        order.setOrderSn("REG_20260629_000001");
+        order.setPatientId(100L);
+        order.setScheduleId(1L);
+        order.setStatus(1); // 待支付
+
+        when(registrationOrderMapper.selectByOrderSn("REG_20260629_000001")).thenReturn(order);
+
+        // When & Then — 用 999L（非订单所有者 100L）调用
+        assertThatThrownBy(() -> registrationOrderService.cancelOrder("REG_20260629_000001", 999L))
+                .isInstanceOf(com.smart.health.common.exception.BusinessException.class)
+                .hasMessageContaining("无权操作");
+
+        verify(registrationOrderMapper, never()).updateStatus(anyString(), anyInt(), anyList());
+        verify(scheduleRedisConfig, never()).incrementStock(any());
+    }
+
+    @Test
+    @DisplayName("支付订单 - patientId 不匹配时抛出 BusinessException")
+    void payOrder_patientIdMismatch_throwsException() {
+        // Given
+        RegistrationOrder order = new RegistrationOrder();
+        order.setOrderSn("REG_20260629_000001");
+        order.setPatientId(100L);
+        order.setScheduleId(1L);
+        order.setStatus(1); // 待支付
+
+        when(registrationOrderMapper.selectByOrderSn("REG_20260629_000001")).thenReturn(order);
+
+        // When & Then — 用 999L（非订单所有者 100L）调用
+        assertThatThrownBy(() -> registrationOrderService.payOrder("REG_20260629_000001", 999L))
+                .isInstanceOf(com.smart.health.common.exception.BusinessException.class)
+                .hasMessageContaining("无权操作");
+
+        verify(registrationOrderMapper, never()).updateStatusWithPayTime(anyString(), anyInt(), anyList(), any());
+    }
+
+    @Test
+    @DisplayName("查询订单详情 - 患者查看他人订单抛出 BusinessException")
+    void getOrderVOByOrderSn_patientIdMismatch_throwsException() {
+        // Given
+        RegistrationOrder order = new RegistrationOrder();
+        order.setOrderSn("REG_20260629_000001");
+        order.setPatientId(100L);
+
+        when(registrationOrderMapper.selectByOrderSn("REG_20260629_000001")).thenReturn(order);
+
+        // When & Then — 患者 999L 查看患者 100L 的订单
+        assertThatThrownBy(() -> registrationOrderService.getOrderVOByOrderSn("REG_20260629_000001", 999L, "PATIENT"))
+                .isInstanceOf(com.smart.health.common.exception.BusinessException.class)
+                .hasMessageContaining("无权查看");
+    }
+
+    @Test
+    @DisplayName("查询订单详情 - 管理员查看任意订单不校验归属")
+    void getOrderVOByOrderSn_adminNoOwnershipCheck_returnsOrder() {
+        // Given
+        OrderVO expected = new OrderVO();
+        expected.setOrderSn("REG_20260629_000001");
+        expected.setPatientId(100L);
+
+        when(registrationOrderMapper.selectOrderVOByOrderSn("REG_20260629_000001")).thenReturn(expected);
+
+        // When — 管理员查看任意患者的订单
+        OrderVO result = registrationOrderService.getOrderVOByOrderSn("REG_20260629_000001", 999L, "ADMIN");
+
+        // Then — 不校验归属，直接返回
+        assertThat(result).isNotNull();
+        assertThat(result.getOrderSn()).isEqualTo("REG_20260629_000001");
     }
 }

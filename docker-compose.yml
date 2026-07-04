@@ -56,6 +56,18 @@ services:
       bash -c "bin/elasticsearch-plugin install --batch analysis-ik 2>/dev/null;
       exec docker-entrypoint.sh elasticsearch"
 
+  nacos:
+    image: nacos/nacos-server:v2.3.0
+    container_name: smart-health-nacos
+    restart: unless-stopped
+    ports:
+      - "8848:8848"
+      - "9848:9848"
+    environment:
+      MODE: standalone
+      JVM_XMS: 256m
+      JVM_XMX: 512m
+
 volumes:
   mysql-data:
   redis-data:

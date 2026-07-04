@@ -11,9 +11,6 @@ import com.smart.health.user.dto.RegisterRequest;
 import com.smart.health.user.entity.Patient;
 import com.smart.health.user.mapper.PatientMapper;
 import lombok.RequiredArgsConstructor;
-import org.springframework.security.authentication.AuthenticationManager;
-import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
-import org.springframework.security.core.Authentication;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -28,7 +25,6 @@ public class PatientAuthService {
     private final PatientMapper patientMapper;
     private final PasswordEncoder passwordEncoder;
     private final JwtTokenProvider jwtTokenProvider;
-    private final AuthenticationManager authenticationManager;
 
     /**
      * 患者注册
@@ -65,22 +61,29 @@ public class PatientAuthService {
      * 患者登录
      */
     public LoginResponse login(LoginRequest request) {
-        // 通过 AuthenticationManager 验证用户名密码
-        Authentication authentication = authenticationManager.authenticate(
-                new UsernamePasswordAuthenticationToken(request.getUsername(), request.getPassword())
-        );
-
-        // 查询用户信息
         Patient patient = patientMapper.findByUsername(request.getUsername());
+        if (patient == null) {
+            throw new BusinessException(ResultCode.USER_NOT_FOUND);
+        }
+
+        if (!passwordEncoder.matches(request.getPassword(), patient.getPassword())) {
+            throw new BusinessException(ResultCode.PASSWORD_ERROR);
+        }
+
+        if (patient.getIsDeleted() != null && patient.getIsDeleted() == 1) {
+            throw new BusinessException(ResultCode.ACCOUNT_DISABLED);
+        }
 
         // 生成JWT Token
-        String token = jwtTokenProvider.generateToken(patient.getId(), patient.getUsername());
+        String token = jwtTokenProvider.generatePatientToken(patient.getId(), patient.getUsername());
 
         return LoginResponse.builder()
                 .token(token)
+                .userId(patient.getId())
                 .patientId(patient.getId())
                 .username(patient.getUsername())
                 .realName(patient.getRealName())
+                .role("PATIENT")
                 .build();
     }
 

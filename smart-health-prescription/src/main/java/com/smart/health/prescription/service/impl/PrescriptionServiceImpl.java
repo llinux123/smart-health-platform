@@ -10,6 +10,8 @@ import com.smart.health.prescription.dto.PrescriptionVO;
 import com.smart.health.prescription.entity.PharmacyInventory;
 import com.smart.health.prescription.entity.Prescription;
 import com.smart.health.prescription.entity.PrescriptionItem;
+import com.smart.health.prescription.enums.AuditStatus;
+import com.smart.health.prescription.enums.PrescriptionStatus;
 import com.smart.health.prescription.mapper.PharmacyInventoryMapper;
 import com.smart.health.prescription.mapper.PrescriptionItemMapper;
 import com.smart.health.prescription.mapper.PrescriptionMapper;
@@ -37,6 +39,7 @@ public class PrescriptionServiceImpl implements PrescriptionService {
     private final PrescriptionItemMapper prescriptionItemMapper;
     private final PharmacyInventoryMapper pharmacyInventoryMapper;
     private final PdfGenerationService pdfGenerationService;
+    private final PrescriptionCodeGenerator prescriptionCodeGenerator;
 
     @Override
     @Transactional(rollbackFor = Exception.class)
@@ -45,7 +48,7 @@ public class PrescriptionServiceImpl implements PrescriptionService {
         validateInventory(request.getMedicines());
 
         // 2. 生成处方编号
-        String prescriptionSn = PrescriptionCodeGenerator.generate();
+        String prescriptionSn = prescriptionCodeGenerator.generate();
 
         // 3. 创建处方主记录
         Prescription prescription = new Prescription();
@@ -53,8 +56,8 @@ public class PrescriptionServiceImpl implements PrescriptionService {
         prescription.setPatientId(request.getPatientId());
         prescription.setDoctorId(doctorId);
         prescription.setDiagnosis(request.getDiagnosis());
-        prescription.setAuditStatus(0); // 待审核
-        prescription.setStatus(0);      // 未配药
+        prescription.setAuditStatus(AuditStatus.PENDING);
+        prescription.setStatus(PrescriptionStatus.NOT_DISPENSED);
         prescriptionMapper.insert(prescription);
 
         // 4. 扣减库存 + 创建处方明细
@@ -107,10 +110,16 @@ public class PrescriptionServiceImpl implements PrescriptionService {
 
     @Override
     public List<PrescriptionVO> listByPatient(Long patientId) {
-        List<Prescription> prescriptions = prescriptionMapper.selectByPatientId(patientId);
-        return prescriptions.stream()
-                .map(p -> buildPrescriptionVO(p, null))
-                .toList();
+        try {
+            List<Prescription> prescriptions = prescriptionMapper.selectByPatientId(patientId);
+            return prescriptions.stream()
+                    .map(p -> buildPrescriptionVO(p, null))
+                    .toList();
+        } catch (Exception e) {
+            log.error("查询患者处方列表失败: patientId={}", patientId, e);
+            throw new BusinessException(ResultCode.FAIL,
+                    "查询处方列表失败: " + e.getMessage());
+        }
     }
 
     @Override
@@ -148,7 +157,7 @@ public class PrescriptionServiceImpl implements PrescriptionService {
         if (prescription == null) {
             throw new BusinessException(ResultCode.PRESCRIPTION_NOT_FOUND);
         }
-        if (prescription.getAuditStatus() != 0) {
+        if (prescription.getAuditStatus() != AuditStatus.PENDING) {
             throw new BusinessException(ResultCode.PRESCRIPTION_ALREADY_AUDITED);
         }
 
@@ -157,9 +166,9 @@ public class PrescriptionServiceImpl implements PrescriptionService {
 
         switch (action) {
             case "APPROVE":
-                prescriptionMapper.updateAuditStatus(prescriptionId, 1, pharmacistId,
+                prescriptionMapper.updateAuditStatus(prescriptionId, AuditStatus.APPROVED, pharmacistId,
                         request.getComments(), now);
-                prescription.setAuditStatus(1);
+                prescription.setAuditStatus(AuditStatus.APPROVED);
                 prescription.setPharmacistId(pharmacistId);
                 prescription.setAuditComments(request.getComments());
                 prescription.setAuditTime(now);
@@ -167,14 +176,14 @@ public class PrescriptionServiceImpl implements PrescriptionService {
                 return buildPrescriptionVO(prescription, null);
 
             case "REJECT":
-                prescriptionMapper.updateAuditStatus(prescriptionId, 2, pharmacistId,
+                prescriptionMapper.updateAuditStatus(prescriptionId, AuditStatus.REJECTED, pharmacistId,
                         request.getComments(), now);
                 List<PrescriptionItem> items = prescriptionItemMapper.selectByPrescriptionId(prescriptionId);
                 for (PrescriptionItem item : items) {
                     pharmacyInventoryMapper.restoreStock(
                             item.getPharmacyId(), item.getMedicineId(), item.getQuantity());
                 }
-                prescription.setAuditStatus(2);
+                prescription.setAuditStatus(AuditStatus.REJECTED);
                 prescription.setPharmacistId(pharmacistId);
                 prescription.setAuditComments(request.getComments());
                 prescription.setAuditTime(now);
@@ -190,7 +199,7 @@ public class PrescriptionServiceImpl implements PrescriptionService {
 
     @Override
     public List<PrescriptionVO> listPendingAudit() {
-        List<Prescription> prescriptions = prescriptionMapper.selectByAuditStatus(0);
+        List<Prescription> prescriptions = prescriptionMapper.selectByAuditStatus(AuditStatus.PENDING);
         return prescriptions.stream()
                 .map(p -> {
                     List<PrescriptionItem> items = prescriptionItemMapper.selectByPrescriptionId(p.getId());
@@ -243,5 +252,10 @@ public class PrescriptionServiceImpl implements PrescriptionService {
         }
 
         return builder.build();
+    }
+
+    @Override
+    public int countByPatientId(Long patientId) {
+        return prescriptionMapper.countByPatientId(patientId);
     }
 }

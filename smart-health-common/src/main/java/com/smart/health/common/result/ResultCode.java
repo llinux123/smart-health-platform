@@ -27,6 +27,10 @@ public enum ResultCode {
     PASSWORD_ERROR(1003, "密码错误"),
     PHONE_EXISTS(1004, "手机号已注册"),
     ID_CARD_EXISTS(1005, "身份证号已注册"),
+    ACCOUNT_DISABLED(1006, "账号已被禁用"),
+    INVALID_LOGIN_TYPE(1007, "无效的登录类型，仅支持 PATIENT / STAFF"),
+    STAFF_NOT_FOUND(1008, "员工不存在"),
+    ROLE_NOT_MODIFIABLE(1009, "角色创建后不可修改"),
 
     // 挂号相关 2001-2999
     SCHEDULE_NOT_FOUND(2001, "排班信息不存在"),
@@ -46,7 +50,14 @@ public enum ResultCode {
     // 问诊相关 4001-4999
     SESSION_NOT_FOUND(4001, "问诊会话不存在"),
     AI_SERVICE_UNAVAILABLE(4002, "AI服务暂不可用"),
-    RAG_SEARCH_FAIL(4003, "知识库检索失败");
+    RAG_SEARCH_FAIL(4003, "知识库检索失败"),
+    SESSION_COMPLETED(4004, "问诊已结束，无法继续"),
+    SESSION_DELETED(4005, "会话已删除"),
+    RATING_EXISTS(4006, "该会话已评分，不可重复评分"),
+    RATING_INVALID(4007, "评分必须在1-5之间"),
+    TURN_NOT_FOUND(4008, "对话轮次不存在"),
+    REGENERATE_NOT_ALLOWED(4009, "仅可重新生成最后一轮对话"),
+    SESSION_NOT_DELETED(4010, "会话未在回收站中");
 
     private final Integer code;
     private final String message;

@@ -1,8 +1,9 @@
 package com.smart.health.prescription.entity;
 
+import com.smart.health.prescription.enums.AuditStatus;
+import com.smart.health.prescription.enums.PrescriptionStatus;
 import lombok.Data;
 
-import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 /**
@@ -30,8 +31,8 @@ public class Prescription {
     /** 电子处方PDF存根路径 */
     private String pdfUrl;
 
-    /** 药师审核状态 (0:待审核 1:审核通过 2:驳回) */
-    private Integer auditStatus;
+    /** 药师审核状态 */
+    private AuditStatus auditStatus;
 
     /** 审核药师ID */
     private Long pharmacistId;
@@ -42,8 +43,8 @@ public class Prescription {
     /** 审核时间 */
     private LocalDateTime auditTime;
 
-    /** 流转状态 (0:未配药 1:配药中 2:已发药) */
-    private Integer status;
+    /** 流转状态 */
+    private PrescriptionStatus status;
 
     /** 开具时间 */
     private LocalDateTime createTime;

@@ -14,4 +14,10 @@ public class LoginRequest {
 
     @NotBlank(message = "密码不能为空")
     private String password;
+
+    /**
+     * 登录类型: PATIENT（患者） / STAFF（员工）
+     */
+    @NotBlank(message = "登录类型不能为空")
+    private String loginType;
 }

@@ -51,4 +51,22 @@ public interface PharmacyInventoryMapper {
     int restoreStock(@Param("pharmacyId") Long pharmacyId,
                      @Param("medicineId") Long medicineId,
                      @Param("quantity") int quantity);
+
+    /**
+     * 入库（增加库存）
+     */
+    @Update("UPDATE t_pharmacy_inventory SET stock = stock + #{quantity} " +
+            "WHERE pharmacy_id = #{pharmacyId} AND medicine_id = #{medicineId}")
+    int increaseStock(@Param("pharmacyId") Long pharmacyId,
+                      @Param("medicineId") Long medicineId,
+                      @Param("quantity") int quantity);
+
+    /**
+     * 盘点（设置实际库存）
+     */
+    @Update("UPDATE t_pharmacy_inventory SET stock = #{newStock} " +
+            "WHERE pharmacy_id = #{pharmacyId} AND medicine_id = #{medicineId}")
+    int setStock(@Param("pharmacyId") Long pharmacyId,
+                 @Param("medicineId") Long medicineId,
+                 @Param("newStock") int newStock);
 }

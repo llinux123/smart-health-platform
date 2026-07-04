@@ -3,6 +3,8 @@ package com.smart.health.user.mapper;
 import com.smart.health.user.entity.Patient;
 import org.apache.ibatis.annotations.*;
 
+import java.util.List;
+
 /**
  * 患者用户Mapper
  */
@@ -14,21 +16,38 @@ public interface PatientMapper {
     @Options(useGeneratedKeys = true, keyProperty = "id")
     int insert(Patient patient);
 
-    @Select("SELECT * FROM t_patient WHERE username = #{username}")
+    @Select("SELECT * FROM t_patient WHERE username = #{username} AND is_deleted = 0")
     Patient findByUsername(@Param("username") String username);
 
-    @Select("SELECT * FROM t_patient WHERE id = #{id}")
+    @Select("SELECT * FROM t_patient WHERE id = #{id} AND is_deleted = 0")
     Patient findById(@Param("id") Long id);
 
-    @Select("SELECT * FROM t_patient WHERE phone = #{phone}")
+    @Select("SELECT * FROM t_patient WHERE phone = #{phone} AND is_deleted = 0")
     Patient findByPhone(@Param("phone") String phone);
 
-    @Select("SELECT COUNT(*) FROM t_patient WHERE username = #{username}")
+    @Select("SELECT COUNT(*) FROM t_patient WHERE username = #{username} AND is_deleted = 0")
     int countByUsername(@Param("username") String username);
 
-    @Select("SELECT COUNT(*) FROM t_patient WHERE id_card = #{idCard}")
+    @Select("SELECT COUNT(*) FROM t_patient WHERE id_card = #{idCard} AND is_deleted = 0")
     int countByIdCard(@Param("idCard") String idCard);
 
-    @Select("SELECT COUNT(*) FROM t_patient WHERE phone = #{phone}")
+    @Select("SELECT COUNT(*) FROM t_patient WHERE phone = #{phone} AND is_deleted = 0")
     int countByPhone(@Param("phone") String phone);
+
+    // ==================== 管理员专用 ====================
+
+    @Select("SELECT * FROM t_patient WHERE is_deleted = 0 ORDER BY create_time DESC")
+    List<Patient> findAll();
+
+    @Update({"<script>",
+            "UPDATE t_patient SET",
+            "  real_name = #{realName},",
+            "  phone = #{phone},",
+            "  gender = #{gender}",
+            "WHERE id = #{id} AND is_deleted = 0",
+            "</script>"})
+    int update(Patient patient);
+
+    @Update("UPDATE t_patient SET is_deleted = 1, deleted_at = NOW() WHERE id = #{id} AND is_deleted = 0")
+    int softDelete(@Param("id") Long id);
 }

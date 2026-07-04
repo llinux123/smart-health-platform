@@ -27,10 +27,10 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
-import { listSchedules } from '@/api/registration'
+import { listSchedules, listDepartments } from '@/api/registration'
 import { formatDate } from '@/utils/format'
 import ScheduleCard from '@/components/ScheduleCard.vue'
 import EmptyState from '@/components/EmptyState.vue'
@@ -41,13 +41,8 @@ const loading = ref(true)
 const filterDept = ref('')
 const filterDate = ref('')
 
-const deptOptions = [
-  { text: '全部科室', value: '' },
-  { text: '皮肤科', value: '皮肤科' },
-  { text: '内科', value: '内科' },
-  { text: '骨科', value: '骨科' },
-  { text: '心内科', value: '心内科' }
-]
+const deptOptions = ref([{ text: '全部科室', value: '' }])
+const deptMap = ref<Record<string, number>>({})
 
 // 生成未来 7 天日期选项
 const dateOptions = [
@@ -60,13 +55,28 @@ const dateOptions = [
   })
 ]
 
-onMounted(() => loadSchedules())
+onMounted(async () => {
+  try {
+    const depts: Array<{ id: number; name: string }> = await listDepartments()
+    deptMap.value = Object.fromEntries(depts.map(d => [d.name, d.id]))
+    deptOptions.value = [
+      { text: '全部科室', value: '' },
+      ...depts.map(d => ({ text: d.name, value: d.name }))
+    ]
+  } catch {
+    // fallback 静默处理
+  }
+  await loadSchedules()
+})
 
 async function loadSchedules() {
   loading.value = true
   try {
-    const params = {}
-    if (filterDept.value) params.deptName = filterDept.value
+    const params: Record<string, any> = {}
+    if (filterDept.value) {
+      params.deptName = filterDept.value
+      params.departmentId = deptMap.value[filterDept.value] || undefined
+    }
     if (filterDate.value) params.workDate = filterDate.value
     schedules.value = await listSchedules(params)
   } catch (err) {
@@ -82,15 +92,16 @@ function goToSeckill(schedule) {
 </script>
 
 <style scoped>
-.filter-bar {
-  background: #fff;
-  margin-bottom: 12px;
+.schedule-list-page {
+  animation: fade-in 0.3s ease;
 }
 
-.page-loading {
-  display: flex;
-  justify-content: center;
-  padding: 40px;
+.filter-bar {
+  background: var(--color-card);
+  margin-bottom: 12px;
+  border-radius: var(--radius-md);
+  margin: 12px 16px 8px;
+  box-shadow: var(--shadow-sm);
 }
 
 .schedule-list {

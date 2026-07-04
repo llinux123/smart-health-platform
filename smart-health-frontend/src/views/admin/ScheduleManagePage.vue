@@ -168,18 +168,33 @@ async function onSubmit() {
 </script>
 
 <style scoped>
-.form-section {
-  margin: 16px;
+.schedule-manage-page {
+  animation: fade-in 0.3s ease;
 }
 
-.section-title {
+.form-section {
+  margin: 16px;
+  background: var(--color-card);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card);
+  padding: 16px;
+  margin-bottom: 16px;
+}
+
+.form-section .section-title {
   font-size: 15px;
-  font-weight: 500;
+  font-weight: var(--font-weight-semibold);
   margin-bottom: 12px;
-  color: #333;
+  color: var(--color-text);
 }
 
 .action-bar {
   padding: 16px;
+}
+
+.action-bar :deep(.van-button--primary) {
+  height: 48px;
+  border-radius: var(--radius-lg);
+  font-weight: var(--font-weight-semibold);
 }
 </style>

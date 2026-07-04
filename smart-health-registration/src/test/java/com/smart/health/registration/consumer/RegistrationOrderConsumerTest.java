@@ -14,7 +14,6 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.math.BigDecimal;
 
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.never;
@@ -89,16 +88,14 @@ class RegistrationOrderConsumerTest {
     }
 
     @Test
-    @DisplayName("处理消息 - 解析失败抛出异常")
-    void handleOrderMessage_parseError_throwsException() throws Exception {
+    @DisplayName("处理消息 - 解析失败仅记录日志，不抛出异常")
+    void handleOrderMessage_parseError_logOnly() throws Exception {
         // Given
         String message = "invalid json";
         when(objectMapper.readValue(anyString(), any(Class.class))).thenThrow(new RuntimeException("Parse error"));
 
-        // When & Then
-        assertThatThrownBy(() -> consumer.handleOrderMessage(message))
-                .isInstanceOf(RuntimeException.class)
-                .hasMessageContaining("处理挂号订单消息失败");
+        // When & Then - 不抛出异常，仅记录日志
+        consumer.handleOrderMessage(message);
     }
 
     @Test

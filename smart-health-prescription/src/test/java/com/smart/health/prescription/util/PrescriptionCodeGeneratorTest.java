@@ -1,22 +1,36 @@
 package com.smart.health.prescription.util;
 
+import com.smart.health.common.sequence.DistributedSequenceGenerator;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
-import java.util.HashSet;
-import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.when;
 
+@ExtendWith(MockitoExtension.class)
 @DisplayName("处方编号生成器测试")
 class PrescriptionCodeGeneratorTest {
+
+    @Mock
+    private DistributedSequenceGenerator sequenceGenerator;
+
+    private PrescriptionCodeGenerator createGenerator() {
+        return new PrescriptionCodeGenerator(sequenceGenerator);
+    }
 
     @Test
     @DisplayName("默认生成编号符合 RX_yyyyMMdd_001_XXXXXX 格式")
     void generate_matchesExpectedFormat() {
-        String code = PrescriptionCodeGenerator.generate();
+        when(sequenceGenerator.nextFormatted(anyString())).thenReturn("000001");
+
+        String code = createGenerator().generate();
         String today = LocalDate.now().format(DateTimeFormatter.ofPattern("yyyyMMdd"));
 
         assertThat(code).startsWith("RX_" + today + "_001_");
@@ -26,7 +40,9 @@ class PrescriptionCodeGeneratorTest {
     @Test
     @DisplayName("指定医院ID生成编号符合 RX_yyyyMMdd_hospitalId_XXXXXX 格式")
     void generateWithHospitalId_matchesExpectedFormat() {
-        String code = PrescriptionCodeGenerator.generate("002");
+        when(sequenceGenerator.nextFormatted(anyString())).thenReturn("000001");
+
+        String code = createGenerator().generate("002");
         String today = LocalDate.now().format(DateTimeFormatter.ofPattern("yyyyMMdd"));
 
         assertThat(code).startsWith("RX_" + today + "_002_");
@@ -34,25 +50,28 @@ class PrescriptionCodeGeneratorTest {
     }
 
     @Test
-    @DisplayName("连续生成不重复")
-    void generate_consecutiveCalls_producesUniqueCodes() {
-        Set<String> codes = new HashSet<>();
-        for (int i = 0; i < 100; i++) {
-            codes.add(PrescriptionCodeGenerator.generate());
-        }
-        assertThat(codes).hasSize(100);
+    @DisplayName("序号来自 DistributedSequenceGenerator")
+    void generate_usesSequenceGenerator() {
+        when(sequenceGenerator.nextFormatted(anyString())).thenReturn("000042");
+
+        String code = createGenerator().generate();
+
+        assertThat(code).endsWith("000042");
     }
 
     @Test
-    @DisplayName("序号递增")
-    void generate_sequentialNumbers_incrementCorrectly() {
-        String first = PrescriptionCodeGenerator.generate();
-        String second = PrescriptionCodeGenerator.generate();
+    @DisplayName("不同序号不重复")
+    void generate_differentSequences_producesUniqueCodes() {
+        when(sequenceGenerator.nextFormatted(anyString()))
+                .thenReturn("000001")
+                .thenReturn("000002");
 
-        // 提取序号部分（最后6位）
-        String seq1 = first.substring(first.lastIndexOf('_') + 1);
-        String seq2 = second.substring(second.lastIndexOf('_') + 1);
+        PrescriptionCodeGenerator gen = createGenerator();
+        String first = gen.generate();
+        String second = gen.generate();
 
-        assertThat(Integer.parseInt(seq2)).isEqualTo(Integer.parseInt(seq1) + 1);
+        assertThat(first).isNotEqualTo(second);
+        assertThat(first).endsWith("000001");
+        assertThat(second).endsWith("000002");
     }
 }

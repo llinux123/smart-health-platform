@@ -2,6 +2,7 @@ package com.smart.health.registration.service.impl;
 
 import com.smart.health.common.exception.BusinessException;
 import com.smart.health.common.result.ResultCode;
+import com.smart.health.registration.config.ScheduleRedisConfig;
 import com.smart.health.registration.dto.OrderVO;
 import com.smart.health.registration.entity.DoctorSchedule;
 import com.smart.health.registration.entity.RegistrationOrder;
@@ -26,6 +27,7 @@ public class RegistrationOrderServiceImpl implements RegistrationOrderService {
 
     private final RegistrationOrderMapper registrationOrderMapper;
     private final DoctorScheduleMapper doctorScheduleMapper;
+    private final ScheduleRedisConfig scheduleRedisConfig;
 
     @Override
     @Transactional(rollbackFor = Exception.class)
@@ -56,7 +58,17 @@ public class RegistrationOrderServiceImpl implements RegistrationOrderService {
     }
 
     @Override
-    public OrderVO getOrderVOByOrderSn(String orderSn) {
+    public OrderVO getOrderVOByOrderSn(String orderSn, Long patientId, String role) {
+        // 角色分级授权：PATIENT 需归属校验，ADMIN/DOCTOR 可查看任意订单
+        if ("PATIENT".equals(role)) {
+            RegistrationOrder order = registrationOrderMapper.selectByOrderSn(orderSn);
+            if (order == null) {
+                throw new BusinessException(ResultCode.ORDER_NOT_FOUND);
+            }
+            if (!order.getPatientId().equals(patientId)) {
+                throw new BusinessException(ResultCode.UNAUTHORIZED, "无权查看该订单");
+            }
+        }
         return registrationOrderMapper.selectOrderVOByOrderSn(orderSn);
     }
 
@@ -67,11 +79,8 @@ public class RegistrationOrderServiceImpl implements RegistrationOrderService {
 
     @Override
     @Transactional(rollbackFor = Exception.class)
-    public void cancelOrder(String orderSn) {
-        RegistrationOrder order = registrationOrderMapper.selectByOrderSn(orderSn);
-        if (order == null) {
-            throw new BusinessException(ResultCode.ORDER_NOT_FOUND);
-        }
+    public void cancelOrder(String orderSn, Long patientId) {
+        RegistrationOrder order = findAndValidateOrder(orderSn, patientId);
         // 幂等处理：已是已退号状态直接返回
         if (order.getStatus() == 4) {
             log.info("订单已是已退号状态，忽略重复取消，orderSn={}", orderSn);
@@ -82,16 +91,40 @@ public class RegistrationOrderServiceImpl implements RegistrationOrderService {
         if (rows == 0) {
             throw new BusinessException(ResultCode.ORDER_STATUS_ERROR, "当前订单状态不允许取消");
         }
-        log.info("取消订单成功，orderSn={}", orderSn);
+
+        // 恢复号源库存
+        restoreInventory(order.getScheduleId(), order.getPatientId());
+        log.info("取消订单成功，orderSn={}, scheduleId={}, patientId={}", orderSn, order.getScheduleId(), order.getPatientId());
+    }
+
+    /**
+     * 恢复号源库存：Redis 库存回滚 + DB visibleCount 乐观锁恢复 + 移除幂等集合
+     */
+    private void restoreInventory(Long scheduleId, Long patientId) {
+        // 1. 恢复 Redis 库存
+        scheduleRedisConfig.incrementStock(scheduleId);
+        log.info("取消订单恢复Redis库存，scheduleId={}", scheduleId);
+
+        // 2. 恢复 DB visibleCount（乐观锁）
+        DoctorSchedule schedule = doctorScheduleMapper.selectById(scheduleId);
+        if (schedule != null) {
+            int rows = doctorScheduleMapper.incrementVisibleCount(scheduleId, schedule.getVersion());
+            if (rows == 0) {
+                log.warn("恢复DB号源乐观锁冲突，scheduleId={}, version={}", scheduleId, schedule.getVersion());
+            } else {
+                log.info("恢复DB号源成功，scheduleId={}", scheduleId);
+            }
+        }
+
+        // 3. 从已抢集合中移除患者，允许再次预约同一专家
+        scheduleRedisConfig.removePatientFromSeckillSet(scheduleId, patientId);
+        log.info("移除患者幂等集合，scheduleId={}, patientId={}", scheduleId, patientId);
     }
 
     @Override
     @Transactional(rollbackFor = Exception.class)
-    public void payOrder(String orderSn) {
-        RegistrationOrder order = registrationOrderMapper.selectByOrderSn(orderSn);
-        if (order == null) {
-            throw new BusinessException(ResultCode.ORDER_NOT_FOUND);
-        }
+    public void payOrder(String orderSn, Long patientId) {
+        RegistrationOrder order = findAndValidateOrder(orderSn, patientId);
         // 幂等处理：已是已支付状态直接返回
         if (order.getStatus() == 2) {
             log.info("订单已是已支付状态，忽略重复支付，orderSn={}", orderSn);
@@ -103,6 +136,25 @@ public class RegistrationOrderServiceImpl implements RegistrationOrderService {
             throw new BusinessException(ResultCode.ORDER_STATUS_ERROR, "当前订单状态不允许支付");
         }
         log.info("支付订单成功，orderSn={}", orderSn);
+    }
+
+    /**
+     * 查找订单并校验归属（防止越权操作）
+     *
+     * @param orderSn   订单号
+     * @param patientId 当前认证患者ID
+     * @return 已验证归属的订单实体
+     * @throws BusinessException 订单不存在或归属不符时抛出
+     */
+    private RegistrationOrder findAndValidateOrder(String orderSn, Long patientId) {
+        RegistrationOrder order = registrationOrderMapper.selectByOrderSn(orderSn);
+        if (order == null) {
+            throw new BusinessException(ResultCode.ORDER_NOT_FOUND);
+        }
+        if (!order.getPatientId().equals(patientId)) {
+            throw new BusinessException(ResultCode.UNAUTHORIZED, "无权操作该订单");
+        }
+        return order;
     }
 
     /**
@@ -121,5 +173,10 @@ public class RegistrationOrderServiceImpl implements RegistrationOrderService {
         } else {
             log.info("同步DB库存成功，scheduleId={}", scheduleId);
         }
+    }
+
+    @Override
+    public int countByPatientId(Long patientId) {
+        return registrationOrderMapper.countByPatientId(patientId);
     }
 }

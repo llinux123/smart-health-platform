@@ -21,8 +21,10 @@ public class ScheduleCreateRequest {
     @Schema(description = "医生ID", example = "1001")
     private Long doctorId;
 
-    @NotBlank(message = "科室名称不能为空")
-    @Schema(description = "科室名称", example = "内科")
+    @Schema(description = "科室ID(优先使用)")
+    private Long departmentId;
+
+    @Schema(description = "科室名称(向后兼容)")
     private String deptName;
 
     @NotNull(message = "出诊日期不能为空")

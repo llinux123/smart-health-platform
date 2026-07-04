@@ -3,12 +3,16 @@ package com.smart.health.prescription.controller;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.smart.health.common.exception.BusinessException;
 import com.smart.health.common.result.ResultCode;
+import com.smart.health.common.security.PatientUserDetails;
 import com.smart.health.prescription.dto.InventoryVO;
 import com.smart.health.prescription.dto.PrescriptionAuditRequest;
 import com.smart.health.prescription.dto.PrescriptionIssueRequest;
 import com.smart.health.prescription.dto.PrescriptionItemVO;
 import com.smart.health.prescription.dto.PrescriptionVO;
+import com.smart.health.prescription.enums.AuditStatus;
+import com.smart.health.prescription.enums.PrescriptionStatus;
 import com.smart.health.prescription.service.PrescriptionService;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -17,6 +21,8 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.MediaType;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
@@ -50,6 +56,20 @@ class PrescriptionControllerTest {
                 .build();
     }
 
+    @AfterEach
+    void tearDown() {
+        SecurityContextHolder.clearContext();
+    }
+
+    private void mockAuthentication(Long patientId, String username) {
+        PatientUserDetails userDetails = new PatientUserDetails(
+                patientId, username, "password",
+                java.util.Collections.singletonList(
+                        new org.springframework.security.core.authority.SimpleGrantedAuthority("ROLE_PATIENT")));
+        var authentication = new UsernamePasswordAuthenticationToken(userDetails, null, userDetails.getAuthorities());
+        SecurityContextHolder.getContext().setAuthentication(authentication);
+    }
+
     @Test
     @DisplayName("POST /api/v1/prescription/issue - 成功开具处方")
     void issuePrescription_success() throws Exception {
@@ -59,8 +79,8 @@ class PrescriptionControllerTest {
                 .patientId(1L)
                 .doctorId(99L)
                 .diagnosis("感冒")
-                .auditStatus(0)
-                .status(0)
+                .auditStatus(AuditStatus.PENDING)
+                .status(PrescriptionStatus.NOT_DISPENSED)
                 .createTime(LocalDateTime.now())
                 .items(List.of(PrescriptionItemVO.builder()
                         .medicineName("阿莫西林")
@@ -123,6 +143,8 @@ class PrescriptionControllerTest {
     @Test
     @DisplayName("GET /api/v1/prescriptions - 查询患者处方列表")
     void listPrescriptions_success() throws Exception {
+        mockAuthentication(1L, "testuser");
+
         PrescriptionVO vo = PrescriptionVO.builder()
                 .id(1L)
                 .prescriptionSn("RX_20260629_001_000001")
@@ -132,8 +154,7 @@ class PrescriptionControllerTest {
 
         when(prescriptionService.listByPatient(1L)).thenReturn(List.of(vo));
 
-        mockMvc.perform(get("/api/v1/prescriptions")
-                        .param("patientId", "1"))
+        mockMvc.perform(get("/api/v1/prescriptions"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(200))
                 .andExpect(jsonPath("$.data[0].prescriptionSn").value("RX_20260629_001_000001"));
@@ -142,10 +163,11 @@ class PrescriptionControllerTest {
     @Test
     @DisplayName("GET /api/v1/prescriptions - 空列表")
     void listPrescriptions_empty() throws Exception {
+        mockAuthentication(999L, "testuser");
+
         when(prescriptionService.listByPatient(999L)).thenReturn(Collections.emptyList());
 
-        mockMvc.perform(get("/api/v1/prescriptions")
-                        .param("patientId", "999"))
+        mockMvc.perform(get("/api/v1/prescriptions"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data").isArray())
                 .andExpect(jsonPath("$.data").isEmpty());
@@ -200,7 +222,7 @@ class PrescriptionControllerTest {
                 .id(1L)
                 .prescriptionSn("RX_20260629_001_000001")
                 .patientId(1L)
-                .auditStatus(1)
+                .auditStatus(AuditStatus.APPROVED)
                 .pharmacistId(50L)
                 .auditComments("审核通过")
                 .build();
@@ -229,7 +251,7 @@ class PrescriptionControllerTest {
         PrescriptionVO vo = PrescriptionVO.builder()
                 .id(1L)
                 .prescriptionSn("RX_20260629_001_000001")
-                .auditStatus(2)
+                .auditStatus(AuditStatus.REJECTED)
                 .pharmacistId(50L)
                 .auditComments("剂量不合理")
                 .build();
@@ -261,7 +283,7 @@ class PrescriptionControllerTest {
         mockMvc.perform(post("/api/v1/prescriptions/1/audit")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
-                .andExpect(status().isOk())
+                .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value(400));
     }
 
@@ -271,7 +293,7 @@ class PrescriptionControllerTest {
         PrescriptionVO vo = PrescriptionVO.builder()
                 .id(1L)
                 .prescriptionSn("RX_20260629_001_000001")
-                .auditStatus(0)
+                .auditStatus(AuditStatus.PENDING)
                 .build();
 
         when(prescriptionService.listPendingAudit()).thenReturn(List.of(vo));

@@ -1,6 +1,7 @@
 package com.smart.health.prescription.mapper;
 
 import com.smart.health.prescription.entity.Prescription;
+import com.smart.health.prescription.enums.AuditStatus;
 import org.apache.ibatis.annotations.*;
 
 import java.time.LocalDateTime;
@@ -37,7 +38,7 @@ public interface PrescriptionMapper {
     @Update("UPDATE t_prescription SET audit_status = #{auditStatus}, pharmacist_id = #{pharmacistId}, " +
             "audit_comments = #{auditComments}, audit_time = #{auditTime} WHERE id = #{id}")
     int updateAuditStatus(@Param("id") Long id,
-                          @Param("auditStatus") Integer auditStatus,
+                          @Param("auditStatus") AuditStatus auditStatus,
                           @Param("pharmacistId") Long pharmacistId,
                           @Param("auditComments") String auditComments,
                           @Param("auditTime") LocalDateTime auditTime);
@@ -48,5 +49,8 @@ public interface PrescriptionMapper {
     @Select("SELECT id, prescription_sn, patient_id, doctor_id, diagnosis, pdf_url, " +
             "audit_status, pharmacist_id, audit_comments, audit_time, status, create_time " +
             "FROM t_prescription WHERE audit_status = #{auditStatus} ORDER BY create_time ASC")
-    List<Prescription> selectByAuditStatus(@Param("auditStatus") Integer auditStatus);
+    List<Prescription> selectByAuditStatus(@Param("auditStatus") AuditStatus auditStatus);
+
+    @Select("SELECT COUNT(*) FROM t_prescription WHERE patient_id = #{patientId}")
+    int countByPatientId(@Param("patientId") Long patientId);
 }

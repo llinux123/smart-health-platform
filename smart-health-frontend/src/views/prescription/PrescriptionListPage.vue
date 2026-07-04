@@ -39,17 +39,15 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import { listPrescriptions } from '@/api/prescription'
-import { useUserStore } from '@/stores/user'
 import { formatDateTime, getAuditStatus } from '@/utils/format'
 import EmptyState from '@/components/EmptyState.vue'
 
-const userStore = useUserStore()
 const prescriptions = ref([])
 const loading = ref(true)
 
 onMounted(async () => {
   try {
-    prescriptions.value = await listPrescriptions(userStore.patientId)
+    prescriptions.value = await listPrescriptions()
   } catch (err) {
     // 错误已在拦截器中处理
   } finally {
@@ -59,10 +57,8 @@ onMounted(async () => {
 </script>
 
 <style scoped>
-.page-loading {
-  display: flex;
-  justify-content: center;
-  padding: 40px;
+.prescription-list-page {
+  animation: fade-in 0.3s ease;
 }
 
 .prescription-list {
@@ -71,11 +67,17 @@ onMounted(async () => {
 
 .rx-card {
   cursor: pointer;
-  transition: transform 0.2s;
+  transition: transform var(--transition-fast), box-shadow var(--transition-fast);
+  background: var(--color-card);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card);
+  padding: 16px;
+  margin-bottom: 12px;
 }
 
 .rx-card:active {
   transform: scale(0.98);
+  box-shadow: var(--shadow-sm);
 }
 
 .rx-header {
@@ -87,8 +89,8 @@ onMounted(async () => {
 
 .rx-sn {
   font-size: 13px;
-  color: #666;
-  font-family: monospace;
+  color: var(--color-text-secondary);
+  font-family: var(--font-mono);
 }
 
 .rx-body {
@@ -97,8 +99,8 @@ onMounted(async () => {
 
 .rx-diagnosis {
   font-size: 15px;
-  font-weight: 500;
-  color: #333;
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text);
   margin-bottom: 8px;
   line-height: 1.4;
   display: -webkit-box;
@@ -110,13 +112,13 @@ onMounted(async () => {
 .rx-meta {
   display: flex;
   justify-content: space-between;
-  font-size: 12px;
-  color: #999;
+  font-size: var(--font-size-caption);
+  color: var(--color-text-tertiary);
 }
 
 .rx-footer {
   display: flex;
   justify-content: flex-end;
-  color: #ccc;
+  color: var(--color-text-tertiary);
 }
 </style>

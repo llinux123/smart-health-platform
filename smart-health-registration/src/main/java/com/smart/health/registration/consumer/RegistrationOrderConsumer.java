@@ -50,8 +50,8 @@ public class RegistrationOrderConsumer {
 
         } catch (Exception e) {
             log.error("处理挂号订单消息失败，message={}", message, e);
-            // 消息进入死信队列，后续可人工处理或重试
-            throw new RuntimeException("处理挂号订单消息失败", e);
+            // 不再重新抛出异常，避免 RabbitMQ 无限重试
+            // 幂等性检查保证下次手动重试时不会重复创建订单
         }
     }
 

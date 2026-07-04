@@ -15,6 +15,8 @@ CREATE TABLE IF NOT EXISTS `t_patient` (
   `id_card` varchar(18) NOT NULL COMMENT '身份证号',
   `phone` varchar(11) NOT NULL COMMENT '手机号',
   `gender` tinyint(1) DEFAULT '0' COMMENT '性别 (0:未知 1:男 2:女)',
+  `is_deleted` tinyint(1) NOT NULL DEFAULT 0 COMMENT '是否已软删除',
+  `deleted_at` datetime DEFAULT NULL COMMENT '软删除时间',
   `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '注册时间',
   PRIMARY KEY (`id`),
   UNIQUE KEY `uk_username` (`username`),
@@ -106,13 +108,49 @@ CREATE TABLE IF NOT EXISTS `t_consultation_session` (
   `patient_id` bigint(20) NOT NULL COMMENT '患者ID',
   `draft_id` varchar(64) DEFAULT NULL COMMENT '症状草稿ID',
   `symptom_draft` text DEFAULT NULL COMMENT '症状自查草稿内容',
-  `chat_log` longtext DEFAULT NULL COMMENT '多轮对话日志(JSON格式)',
+  `status` varchar(20) NOT NULL DEFAULT 'IN_PROGRESS' COMMENT '会话状态: IN_PROGRESS/COMPLETED',
+  `is_deleted` tinyint(1) NOT NULL DEFAULT 0 COMMENT '是否已删除(回收站)',
+  `deleted_at` datetime DEFAULT NULL COMMENT '删除时间(回收站)',
+  `is_pinned` tinyint(1) NOT NULL DEFAULT 0 COMMENT '是否置顶',
+  `ai_summary` text DEFAULT NULL COMMENT 'AI总结',
+  `last_chat_time` datetime DEFAULT NULL COMMENT '最后对话时间',
   `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
   `update_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
   PRIMARY KEY (`id`),
   UNIQUE KEY `uk_session_sn` (`session_sn`),
-  KEY `idx_patient_id` (`patient_id`)
+  KEY `idx_patient_id` (`patient_id`),
+  KEY `idx_status` (`status`),
+  KEY `idx_is_deleted` (`is_deleted`),
+  KEY `idx_last_chat_time` (`patient_id`, `last_chat_time` DESC)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='AI问诊会话表';
+
+-- 6b. 问诊对话轮次表
+CREATE TABLE IF NOT EXISTS `t_consultation_turn` (
+  `id` bigint(20) NOT NULL AUTO_INCREMENT COMMENT '轮次ID',
+  `session_sn` varchar(64) NOT NULL COMMENT '会话编号',
+  `turn_number` int NOT NULL COMMENT '轮次序号(从1开始)',
+  `user_message` text NOT NULL COMMENT '用户消息',
+  `assistant_message` text NOT NULL COMMENT 'AI回复',
+  `citations` json DEFAULT NULL COMMENT '引用来源(JSON数组)',
+  `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  `update_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_session_turn` (`session_sn`, `turn_number`),
+  KEY `idx_session_sn` (`session_sn`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='问诊对话轮次表';
+
+-- 6c. 问诊评分表
+CREATE TABLE IF NOT EXISTS `t_consultation_rating` (
+  `id` bigint(20) NOT NULL AUTO_INCREMENT COMMENT '评分ID',
+  `session_sn` varchar(64) NOT NULL COMMENT '会话编号',
+  `patient_id` bigint(20) NOT NULL COMMENT '患者ID',
+  `rating` tinyint NOT NULL COMMENT '评分(1-5星)',
+  `feedback` varchar(500) DEFAULT NULL COMMENT '文字反馈(可选)',
+  `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_session_sn` (`session_sn`),
+  KEY `idx_patient_id` (`patient_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='问诊评分表';
 
 -- 8. 处方审核字段迁移（已有数据库升级用）
 -- ALTER TABLE `t_prescription`

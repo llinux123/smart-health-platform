@@ -1,0 +1,10 @@
+# Test configuration
+jwt:
+  secret: c21hcnQtaGVhbHRoLXBsYXRmb3JtLWp3dC1zZWNyZXQta2V5LTIwMjY=
+  expiration: 86400000
+
+spring:
+  cloud:
+    nacos:
+      discovery:
+        enabled: false

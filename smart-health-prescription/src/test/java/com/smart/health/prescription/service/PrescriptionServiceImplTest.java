@@ -8,10 +8,13 @@ import com.smart.health.prescription.dto.PrescriptionVO;
 import com.smart.health.prescription.entity.PharmacyInventory;
 import com.smart.health.prescription.entity.Prescription;
 import com.smart.health.prescription.entity.PrescriptionItem;
+import com.smart.health.prescription.enums.AuditStatus;
+import com.smart.health.prescription.enums.PrescriptionStatus;
 import com.smart.health.prescription.mapper.PharmacyInventoryMapper;
 import com.smart.health.prescription.mapper.PrescriptionItemMapper;
 import com.smart.health.prescription.mapper.PrescriptionMapper;
 import com.smart.health.prescription.service.impl.PrescriptionServiceImpl;
+import com.smart.health.prescription.util.PrescriptionCodeGenerator;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -41,6 +44,8 @@ class PrescriptionServiceImplTest {
     private PharmacyInventoryMapper pharmacyInventoryMapper;
     @Mock
     private PdfGenerationService pdfGenerationService;
+    @Mock
+    private PrescriptionCodeGenerator prescriptionCodeGenerator;
 
     private PrescriptionServiceImpl prescriptionService;
 
@@ -48,7 +53,8 @@ class PrescriptionServiceImplTest {
     void setUp() {
         prescriptionService = new PrescriptionServiceImpl(
                 prescriptionMapper, prescriptionItemMapper,
-                pharmacyInventoryMapper, pdfGenerationService
+                pharmacyInventoryMapper, pdfGenerationService,
+                prescriptionCodeGenerator
         );
     }
 
@@ -87,6 +93,7 @@ class PrescriptionServiceImplTest {
             when(pdfGenerationService.generatePrescriptionPdf(any(), any(), any(), any(), any()))
                     .thenReturn("/tmp/rx_test.pdf");
             when(prescriptionMapper.updatePdfUrl(any(), any())).thenReturn(1);
+            when(prescriptionCodeGenerator.generate()).thenReturn("RX_20260629_001_000001");
 
             // when
             PrescriptionVO result = prescriptionService.issuePrescription(request, 99L);
@@ -205,8 +212,8 @@ class PrescriptionServiceImplTest {
             p.setPatientId(1L);
             p.setDoctorId(99L);
             p.setDiagnosis("感冒");
-            p.setAuditStatus(0);
-            p.setStatus(0);
+            p.setAuditStatus(AuditStatus.PENDING);
+            p.setStatus(PrescriptionStatus.NOT_DISPENSED);
             p.setCreateTime(LocalDateTime.now());
 
             when(prescriptionMapper.selectByPatientId(1L)).thenReturn(List.of(p));
@@ -242,8 +249,8 @@ class PrescriptionServiceImplTest {
             p.setPatientId(1L);
             p.setDoctorId(99L);
             p.setDiagnosis("感冒");
-            p.setAuditStatus(0);
-            p.setStatus(0);
+            p.setAuditStatus(AuditStatus.PENDING);
+            p.setStatus(PrescriptionStatus.NOT_DISPENSED);
 
             PrescriptionItem item = new PrescriptionItem();
             item.setMedicineName("阿莫西林");
@@ -321,8 +328,8 @@ class PrescriptionServiceImplTest {
             p.setPatientId(1L);
             p.setDoctorId(99L);
             p.setDiagnosis("感冒");
-            p.setAuditStatus(0);
-            p.setStatus(0);
+            p.setAuditStatus(AuditStatus.PENDING);
+            p.setStatus(PrescriptionStatus.NOT_DISPENSED);
 
             PrescriptionAuditRequest request = PrescriptionAuditRequest.builder()
                     .action("APPROVE")
@@ -330,13 +337,13 @@ class PrescriptionServiceImplTest {
                     .build();
 
             when(prescriptionMapper.selectById(1L)).thenReturn(p);
-            when(prescriptionMapper.updateAuditStatus(eq(1L), eq(1), eq(50L), eq("审核通过"), any()))
+            when(prescriptionMapper.updateAuditStatus(eq(1L), eq(AuditStatus.APPROVED), eq(50L), eq("审核通过"), any()))
                     .thenReturn(1);
 
             PrescriptionVO result = prescriptionService.auditPrescription(1L, request, 50L);
 
             assertThat(result).isNotNull();
-            assertThat(result.getAuditStatus()).isEqualTo(1);
+            assertThat(result.getAuditStatus()).isEqualTo(AuditStatus.APPROVED);
             assertThat(result.getPharmacistId()).isEqualTo(50L);
             assertThat(result.getAuditComments()).isEqualTo("审核通过");
             verify(pharmacyInventoryMapper, never()).restoreStock(anyLong(), anyLong(), anyInt());
@@ -351,8 +358,8 @@ class PrescriptionServiceImplTest {
             p.setPatientId(1L);
             p.setDoctorId(99L);
             p.setDiagnosis("感冒");
-            p.setAuditStatus(0);
-            p.setStatus(0);
+            p.setAuditStatus(AuditStatus.PENDING);
+            p.setStatus(PrescriptionStatus.NOT_DISPENSED);
 
             PrescriptionItem item1 = new PrescriptionItem();
             item1.setPrescriptionId(1L);
@@ -374,7 +381,7 @@ class PrescriptionServiceImplTest {
                     .build();
 
             when(prescriptionMapper.selectById(1L)).thenReturn(p);
-            when(prescriptionMapper.updateAuditStatus(eq(1L), eq(2), eq(50L), eq("剂量不合理"), any()))
+            when(prescriptionMapper.updateAuditStatus(eq(1L), eq(AuditStatus.REJECTED), eq(50L), eq("剂量不合理"), any()))
                     .thenReturn(1);
             when(prescriptionItemMapper.selectByPrescriptionId(1L)).thenReturn(List.of(item1, item2));
             when(pharmacyInventoryMapper.restoreStock(10L, 100L, 2)).thenReturn(1);
@@ -383,7 +390,7 @@ class PrescriptionServiceImplTest {
             PrescriptionVO result = prescriptionService.auditPrescription(1L, request, 50L);
 
             assertThat(result).isNotNull();
-            assertThat(result.getAuditStatus()).isEqualTo(2);
+            assertThat(result.getAuditStatus()).isEqualTo(AuditStatus.REJECTED);
             assertThat(result.getAuditComments()).isEqualTo("剂量不合理");
             verify(pharmacyInventoryMapper).restoreStock(10L, 100L, 2);
             verify(pharmacyInventoryMapper).restoreStock(10L, 200L, 1);
@@ -408,7 +415,7 @@ class PrescriptionServiceImplTest {
         void auditPrescription_alreadyAudited_throwsException() {
             Prescription p = new Prescription();
             p.setId(1L);
-            p.setAuditStatus(1); // 已通过
+            p.setAuditStatus(AuditStatus.APPROVED); // 已通过
 
             when(prescriptionMapper.selectById(1L)).thenReturn(p);
 
@@ -426,7 +433,7 @@ class PrescriptionServiceImplTest {
         void auditPrescription_invalidAction_throwsException() {
             Prescription p = new Prescription();
             p.setId(1L);
-            p.setAuditStatus(0);
+            p.setAuditStatus(AuditStatus.PENDING);
 
             when(prescriptionMapper.selectById(1L)).thenReturn(p);
 
@@ -451,21 +458,21 @@ class PrescriptionServiceImplTest {
             p.setId(1L);
             p.setPrescriptionSn("RX_20260629_001_000001");
             p.setPatientId(1L);
-            p.setAuditStatus(0);
+            p.setAuditStatus(AuditStatus.PENDING);
 
-            when(prescriptionMapper.selectByAuditStatus(0)).thenReturn(List.of(p));
+            when(prescriptionMapper.selectByAuditStatus(AuditStatus.PENDING)).thenReturn(List.of(p));
 
             List<PrescriptionVO> result = prescriptionService.listPendingAudit();
 
             assertThat(result).hasSize(1);
-            assertThat(result.get(0).getAuditStatus()).isEqualTo(0);
-            verify(prescriptionMapper).selectByAuditStatus(0);
+            assertThat(result.get(0).getAuditStatus()).isEqualTo(AuditStatus.PENDING);
+            verify(prescriptionMapper).selectByAuditStatus(AuditStatus.PENDING);
         }
 
         @Test
         @DisplayName("无待审核处方时返回空列表")
         void listPendingAudit_empty() {
-            when(prescriptionMapper.selectByAuditStatus(0)).thenReturn(Collections.emptyList());
+            when(prescriptionMapper.selectByAuditStatus(AuditStatus.PENDING)).thenReturn(Collections.emptyList());
 
             List<PrescriptionVO> result = prescriptionService.listPendingAudit();
 

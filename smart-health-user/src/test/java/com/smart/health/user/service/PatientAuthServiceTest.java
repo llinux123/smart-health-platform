@@ -14,7 +14,6 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -43,15 +42,12 @@ class PatientAuthServiceTest {
     @Mock
     private JwtTokenProvider jwtTokenProvider;
 
-    @Mock
-    private AuthenticationManager authenticationManager;
-
     private PatientAuthService patientAuthService;
 
     @BeforeEach
     void setUp() {
         patientAuthService = new PatientAuthService(
-                patientMapper, passwordEncoder, jwtTokenProvider, authenticationManager
+                patientMapper, passwordEncoder, jwtTokenProvider
         );
         // 清理 SecurityContext
         SecurityContextHolder.clearContext();

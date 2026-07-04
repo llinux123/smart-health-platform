@@ -42,7 +42,13 @@ public class CommonConstants {
     public static final String ORDER_SN_PREFIX = "REG_";
 
     /** Redis Key 前缀 - 订单号计数器 */
-    public static final String ORDER_SN_COUNTER_PREFIX = "order:sn:counter:";
+    public static final String ORDER_SN_COUNTER_PREFIX = "sn:counter:order:";
+
+    /** Redis Key 前缀 - 处方号计数器 */
+    public static final String RX_SN_COUNTER_PREFIX = "sn:counter:rx:";
+
+    /** Redis Key 前缀 - 会话号计数器 */
+    public static final String SESSION_SN_COUNTER_PREFIX = "sn:counter:session:";
 
     /** 处方编号前缀（旧格式） */
     public static final String PRESCRIPTION_SN_PREFIX = "PRE_";

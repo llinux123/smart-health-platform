@@ -1,151 +1,221 @@
 package com.smart.health.consultation.controller;
 
 import com.smart.health.common.constant.CommonConstants;
+import com.smart.health.common.result.PageResult;
+import com.smart.health.common.exception.BusinessException;
 import com.smart.health.common.result.Result;
-import com.smart.health.consultation.dto.ConsultStreamRequest;
-import com.smart.health.consultation.dto.KnowledgeImportRequest;
-import com.smart.health.consultation.dto.MultimodalAnalyzeResponse;
-import com.smart.health.consultation.dto.SessionHistoryVO;
-import com.smart.health.consultation.dto.SessionVO;
-import com.smart.health.consultation.service.ConsultationService;
+import com.smart.health.common.security.SecurityUtils;
+import com.smart.health.consultation.dto.*;
+import com.smart.health.consultation.service.ChatStream;
 import com.smart.health.consultation.service.MultimodalService;
 import com.smart.health.consultation.service.RagRetrievalService;
-import io.jsonwebtoken.Claims;
-import io.jsonwebtoken.Jwts;
-import io.jsonwebtoken.security.Keys;
+import com.smart.health.consultation.service.SessionArchive;
+import com.smart.health.consultation.service.SessionManager;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.MediaType;
-import org.springframework.util.StringUtils;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
-import javax.crypto.SecretKey;
-import java.util.Base64;
 import java.util.List;
 
 /**
- * AI问诊控制器
+ * AI问诊控制器 — 拆分后仅负责请求转发，不包含业务逻辑
  */
 @Slf4j
 @RestController
 @RequestMapping("/api/v1/ai")
 @RequiredArgsConstructor
 @Tag(name = "AI问诊", description = "多模态图片分析、SSE流式对话、会话管理等AI问诊接口")
+@PreAuthorize("hasRole('PATIENT')")
 public class AiConsultController {
 
     private final MultimodalService multimodalService;
-    private final ConsultationService consultationService;
+    private final ChatStream chatStream;
+    private final SessionManager sessionManager;
+    private final SessionArchive sessionArchive;
     private final RagRetrievalService ragRetrievalService;
 
-    @Value("${jwt.secret}")
-    private String jwtSecret;
+    // ============ 多模态接口 ============
 
-    /**
-     * 上传图片进行多模态分析
-     */
     @PostMapping("/multimodal/analyze")
-    @Operation(summary = "多模态图片分析", description = "上传图片（症状照片或检查报告），AI进行 multimodal 分析并返回结构化结果")
+    @Operation(summary = "多模态图片分析")
     public Result<MultimodalAnalyzeResponse> multimodalAnalyze(
-            @Parameter(description = "上传图片文件") @RequestParam("file") MultipartFile file,
-            @Parameter(description = "图片类型: IMAGE-症状图片, REPORT-检查报告") @RequestParam("type") String type,
+            @RequestParam("files") List<MultipartFile> files,
+            @RequestParam("type") String type,
             @RequestHeader(value = CommonConstants.TOKEN_HEADER, required = false) String bearerToken) {
         Long patientId = extractPatientId(bearerToken);
-        log.info("收到多模态分析请求, type={}, filename={}, patientId={}", type, file.getOriginalFilename(), patientId);
-        MultimodalAnalyzeResponse response = multimodalService.analyze(file, type, patientId);
+        MultimodalAnalyzeResponse response = multimodalService.analyze(files, type, patientId);
         return Result.ok(response);
     }
 
-    /**
-     * RAG 智能问诊流式追问 (SSE)
-     * 基于 RAG + 知识图谱的智能全科医生问诊，采用 SSE 技术实现打字机流式输出
-     */
+    // ============ SSE 流式问诊 ============
+
     @PostMapping(value = "/consult/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
-    @Operation(summary = "RAG流式问诊", description = "基于RAG医学知识库的SSE流式问诊，支持多轮对话追问，返回引用来源")
+    @Operation(summary = "RAG流式问诊")
     public SseEmitter streamConsult(
             @RequestBody ConsultStreamRequest request,
             @RequestHeader(value = CommonConstants.TOKEN_HEADER, required = false) String bearerToken) {
         Long patientId = extractPatientId(bearerToken);
-        log.info("收到流式问诊请求, sessionId={}, patientId={}", request.getSessionId(), patientId);
-        return consultationService.streamConsult(request, patientId);
+        return chatStream.streamConsult(request, patientId);
     }
 
-    /**
-     * 创建新的问诊会话
-     */
+    // ============ 会话管理（SessionManager） ============
+
     @PostMapping("/sessions")
-    @Operation(summary = "创建问诊会话", description = "创建新的问诊会话，可选关联多模态分析草稿")
+    @Operation(summary = "创建问诊会话")
     public Result<String> createSession(
             @RequestParam(value = "draftId", required = false) String draftId,
             @RequestParam(value = "symptomDraft", required = false) String symptomDraft,
+            @RequestParam(value = "fileUrls", required = false) String fileUrls,
             @RequestHeader(value = CommonConstants.TOKEN_HEADER, required = false) String bearerToken) {
         Long patientId = extractPatientId(bearerToken);
-        String sessionSn = consultationService.createSession(patientId, draftId, symptomDraft);
-        log.info("创建问诊会话, sessionSn={}, patientId={}", sessionSn, patientId);
+        String sessionSn = sessionManager.createSession(patientId, draftId, symptomDraft, fileUrls);
         return Result.ok(sessionSn);
     }
 
-    /**
-     * 查询患者的问诊会话列表
-     */
     @GetMapping("/sessions")
-    @Operation(summary = "问诊会话列表", description = "查询当前患者的所有问诊会话")
-    public Result<List<SessionVO>> listSessions(
+    @Operation(summary = "问诊会话列表", description = "分页查询，支持搜索、筛选、置顶排序")
+    public Result<PageResult<SessionVO>> listSessions(
+            SessionListRequest request,
             @RequestHeader(value = CommonConstants.TOKEN_HEADER, required = false) String bearerToken) {
         Long patientId = extractPatientId(bearerToken);
-        List<SessionVO> sessions = consultationService.listSessions(patientId);
-        return Result.ok(sessions);
+        PageResult<SessionVO> result = sessionManager.listSessions(patientId, request);
+        return Result.ok(result);
     }
 
-    /**
-     * 获取会话的完整对话历史
-     */
-    @GetMapping("/sessions/{sessionSn}/history")
-    @Operation(summary = "会话对话历史", description = "获取指定会话的完整多轮对话记录")
-    public Result<List<SessionHistoryVO>> getSessionHistory(
+    @GetMapping("/sessions/{sessionSn}")
+    @Operation(summary = "会话详情")
+    public Result<SessionVO> getSessionDetail(
             @PathVariable String sessionSn,
             @RequestHeader(value = CommonConstants.TOKEN_HEADER, required = false) String bearerToken) {
         Long patientId = extractPatientId(bearerToken);
-        List<SessionHistoryVO> history = consultationService.getSessionHistory(sessionSn, patientId);
-        return Result.ok(history);
+        SessionVO result = sessionManager.getSessionDetail(sessionSn, patientId);
+        return Result.ok(result);
     }
 
-    /**
-     * 导入医学知识文档到 ES 知识库
-     */
+    @GetMapping("/sessions/{sessionSn}/turns")
+    @Operation(summary = "对话轮次列表", description = "分页获取，按 turn_number DESC")
+    public Result<PageResult<TurnVO>> getSessionTurns(
+            @PathVariable String sessionSn,
+            @Parameter(description = "页码") @RequestParam(defaultValue = "1") int page,
+            @Parameter(description = "每页大小") @RequestParam(defaultValue = "5") int size,
+            @RequestHeader(value = CommonConstants.TOKEN_HEADER, required = false) String bearerToken) {
+        Long patientId = extractPatientId(bearerToken);
+        PageResult<TurnVO> result = sessionManager.getSessionTurns(sessionSn, patientId, page, size);
+        return Result.ok(result);
+    }
+
+    @PostMapping("/sessions/{sessionSn}/complete")
+    @Operation(summary = "确认结束问诊")
+    public Result<Void> completeSession(
+            @PathVariable String sessionSn,
+            @RequestHeader(value = CommonConstants.TOKEN_HEADER, required = false) String bearerToken) {
+        Long patientId = extractPatientId(bearerToken);
+        sessionManager.completeSession(sessionSn, patientId);
+        return Result.ok();
+    }
+
+    @PutMapping("/sessions/{sessionSn}/pin")
+    @Operation(summary = "置顶/取消置顶")
+    public Result<Void> togglePin(
+            @PathVariable String sessionSn,
+            @RequestHeader(value = CommonConstants.TOKEN_HEADER, required = false) String bearerToken) {
+        Long patientId = extractPatientId(bearerToken);
+        sessionManager.togglePin(sessionSn, patientId);
+        return Result.ok();
+    }
+
+    // ============ 重新生成（ChatStream） ============
+
+    @PostMapping("/sessions/{sessionSn}/turns/{turnNumber}/regenerate")
+    @Operation(summary = "重新生成AI回复", description = "仅支持最后一轮")
+    public Result<TurnVO> regenerateLastTurn(
+            @PathVariable String sessionSn,
+            @PathVariable Integer turnNumber,
+            @RequestHeader(value = CommonConstants.TOKEN_HEADER, required = false) String bearerToken) {
+        Long patientId = extractPatientId(bearerToken);
+        TurnVO result = chatStream.regenerateLastTurn(sessionSn, patientId, turnNumber);
+        return Result.ok(result);
+    }
+
+    // ============ 删除与回收站（SessionArchive） ============
+
+    @PostMapping("/sessions/{sessionSn}/delete")
+    @Operation(summary = "删除会话", description = "mode=recycle移入回收站, mode=permanent彻底删除")
+    public Result<Void> deleteSession(
+            @PathVariable String sessionSn,
+            @Parameter(description = "删除模式: recycle/permanent") @RequestParam String mode,
+            @RequestHeader(value = CommonConstants.TOKEN_HEADER, required = false) String bearerToken) {
+        Long patientId = extractPatientId(bearerToken);
+        sessionArchive.deleteSession(sessionSn, patientId, mode);
+        return Result.ok();
+    }
+
+    @PostMapping("/sessions/{sessionSn}/rate")
+    @Operation(summary = "问诊评分")
+    public Result<Void> rateSession(
+            @PathVariable String sessionSn,
+            @Valid @RequestBody RatingRequest request,
+            @RequestHeader(value = CommonConstants.TOKEN_HEADER, required = false) String bearerToken) {
+        Long patientId = extractPatientId(bearerToken);
+        sessionArchive.rateSession(sessionSn, patientId, request);
+        return Result.ok();
+    }
+
+    @GetMapping("/sessions/recycle-bin")
+    @Operation(summary = "回收站列表")
+    public Result<PageResult<SessionVO>> listRecycleBin(
+            @Parameter(description = "页码") @RequestParam(defaultValue = "1") int page,
+            @Parameter(description = "每页大小") @RequestParam(defaultValue = "10") int size,
+            @RequestHeader(value = CommonConstants.TOKEN_HEADER, required = false) String bearerToken) {
+        Long patientId = extractPatientId(bearerToken);
+        PageResult<SessionVO> result = sessionArchive.listRecycleBin(patientId, page, size);
+        return Result.ok(result);
+    }
+
+    @PostMapping("/sessions/recycle-bin/{sessionSn}/restore")
+    @Operation(summary = "从回收站恢复")
+    public Result<Void> restoreSession(
+            @PathVariable String sessionSn,
+            @RequestHeader(value = CommonConstants.TOKEN_HEADER, required = false) String bearerToken) {
+        Long patientId = extractPatientId(bearerToken);
+        sessionArchive.restoreSession(sessionSn, patientId);
+        return Result.ok();
+    }
+
+    @PostMapping("/sessions/recycle-bin/{sessionSn}/permanent")
+    @Operation(summary = "回收站中彻底删除")
+    public Result<Void> permanentDeleteFromRecycleBin(
+            @PathVariable String sessionSn,
+            @RequestHeader(value = CommonConstants.TOKEN_HEADER, required = false) String bearerToken) {
+        Long patientId = extractPatientId(bearerToken);
+        sessionArchive.permanentDeleteFromRecycleBin(sessionSn, patientId);
+        return Result.ok();
+    }
+
+    // ============ RAG 知识库接口 ============
+
     @PostMapping("/knowledge/import")
-    @Operation(summary = "导入医学知识", description = "导入医学知识文档到 ES 知识库，自动生成 Embedding 向量")
+    @Operation(summary = "导入医学知识")
     public Result<Integer> importKnowledge(@RequestBody KnowledgeImportRequest request) {
-        int count = ragRetrievalService.importDocument(
-                request.getTitle(), request.getContent(), request.getCategory());
+        int count = ragRetrievalService.importDocument(request.getTitle(), request.getContent(), request.getCategory());
         return Result.ok(count);
     }
-    
-    /**
-     * 从 JWT token 中提取patientId
-     */
+
+    // ============ 工具方法 ============
+
     private Long extractPatientId(String bearerToken) {
-        if (!StringUtils.hasText(bearerToken) || !bearerToken.startsWith(CommonConstants.TOKEN_PREFIX)) {
-            return 0L;
+        Long patientId = SecurityUtils.tryGetCurrentPatientId();
+        if (patientId == null) {
+            throw new BusinessException("请先登录");
         }
-        try {
-            String token = bearerToken.substring(CommonConstants.TOKEN_PREFIX.length());
-            byte[] keyBytes = Base64.getDecoder().decode(jwtSecret);
-            SecretKey key = Keys.hmacShaKeyFor(keyBytes);
-            Claims claims = Jwts.parser()
-                    .verifyWith(key)
-                    .build()
-                    .parseSignedClaims(token)
-                    .getPayload();
-            return claims.get("patientId", Long.class);
-        } catch (Exception e) {
-            log.warn("从JWT提取patientId失败: {}", e.getMessage());
-            return 0L;
-        }
+        return patientId;
     }
 }

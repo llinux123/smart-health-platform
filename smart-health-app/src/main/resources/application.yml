@@ -33,14 +33,26 @@ spring:
   # Spring AI - OpenAI Compatible API
   ai:
     openai:
-      base-url: https://${WorkspaceId:ws-9n3g02zvmmjc0ukc}.cn-beijing.maas.aliyuncs.com/compatible-mode/v1
-      api-key: ${AI_API_KEY:sk-ws-H.RXMPYDE.6E1X.MEQCIGjtAs6vhh7IX5srIjIEhavW9jgAlHoxB7KlvHHtncH4AiAyrYYEpj4dv2aSKFkuwN3kayGPwZL_a47fSAiOpgdd5g}
+      base-url: https://${WorkspaceId:ws-9n3g02zvmmjc0ukc}.cn-beijing.maas.aliyuncs.com/compatible-mode
+      api-key: ${AI_API_KEY:default}
       chat:
         options:
           model: qwen3.7-max
       embedding:
         options:
-          model: text-embedding-ada-002
+          model: text-embedding-v3
+
+  # Zhipu AI - multimodal vision model
+  ai-zhipu:
+    base-url: https://open.bigmodel.cn/api/paas/v4
+    api-key: ${ZHIPU_API_KEY:your-zhipu-api-key-here}
+    model: glm-4v-flash
+
+  # File upload limits
+  servlet:
+    multipart:
+      max-file-size: 10MB
+      max-request-size: 15MB
 
   # Jackson
   jackson:
@@ -56,6 +68,7 @@ mybatis:
   type-aliases-package: com.smart.health.*.entity
   configuration:
     map-underscore-to-camel-case: true
+    default-enum-type-handler: org.apache.ibatis.type.EnumOrdinalTypeHandler
     log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
 
 # PageHelper
@@ -84,6 +97,12 @@ jwt:
 # File upload
 file:
   upload-path: ${UPLOAD_PATH:/tmp/smart-health/uploads/}
+
+# Knowledge base seed data
+knowledge:
+  seed:
+    enabled: true
+    location: classpath:knowledge/medical-knowledge-seed.json
 
 logging:
   level:

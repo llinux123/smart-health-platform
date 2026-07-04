@@ -6,6 +6,8 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.util.List;
+
 /**
  * 多模态图片分析响应
  */
@@ -16,8 +18,8 @@ import lombok.NoArgsConstructor;
 @Schema(description = "多模态图片分析响应")
 public class MultimodalAnalyzeResponse {
 
-    @Schema(description = "文件访问URL")
-    private String fileUrl;
+    @Schema(description = "文件访问URL列表")
+    private List<String> fileUrls;
 
     @Schema(description = "草稿ID")
     private String draftId;

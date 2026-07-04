@@ -70,6 +70,10 @@ function goToSeckill(schedule) {
 </script>
 
 <style scoped>
+.doctor-detail-page {
+  animation: fade-in 0.3s ease;
+}
+
 .doctor-info {
   margin: 16px;
 }
@@ -84,11 +88,12 @@ function goToSeckill(schedule) {
 .doctor-meta h2 {
   font-size: 20px;
   margin-bottom: 4px;
+  color: var(--color-text);
 }
 
 .dept-name {
-  font-size: 13px;
-  color: #999;
+  font-size: var(--font-size-caption);
+  color: var(--color-text-tertiary);
   margin-top: 4px;
 }
 
@@ -99,25 +104,27 @@ function goToSeckill(schedule) {
 
 .doctor-specialty h4,
 .doctor-intro h4 {
-  font-size: 14px;
-  color: #333;
+  font-size: var(--font-size-body);
+  color: var(--color-text);
   margin-bottom: 4px;
+  font-weight: var(--font-weight-semibold);
 }
 
 .doctor-specialty p,
 .doctor-intro p {
-  font-size: 14px;
-  color: #666;
-  line-height: 1.6;
+  font-size: var(--font-size-body);
+  color: var(--color-text-secondary);
+  line-height: var(--line-height-relaxed);
 }
 
 .schedule-section {
   padding: 0 16px;
 }
 
-.section-title {
-  font-size: 16px;
-  font-weight: 500;
+.schedule-section .section-title {
+  font-size: var(--font-size-card-title);
+  font-weight: var(--font-weight-semibold);
   margin-bottom: 12px;
+  color: var(--color-text);
 }
 </style>

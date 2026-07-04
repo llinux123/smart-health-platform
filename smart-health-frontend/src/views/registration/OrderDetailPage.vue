@@ -113,30 +113,38 @@ async function handleCancel() {
 </script>
 
 <style scoped>
-.page-loading {
-  display: flex;
-  justify-content: center;
-  padding: 40px;
+.order-detail-page {
+  animation: fade-in 0.3s ease;
 }
 
 .status-bar {
-  background: #fff;
+  background: var(--color-card);
   padding: 16px;
   margin-bottom: 12px;
+  margin: 16px 16px 12px;
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-sm);
 }
 
 .order-info {
   margin: 16px;
 }
 
-.card-title {
-  font-size: 16px;
-  font-weight: 500;
+.order-info .card-title {
+  font-size: var(--font-size-card-title);
+  font-weight: var(--font-weight-semibold);
   margin-bottom: 12px;
+  color: var(--color-text);
 }
 
 .order-actions {
   padding: 0 16px;
+}
+
+.order-actions :deep(.van-button--primary) {
+  height: 48px;
+  border-radius: var(--radius-lg);
+  font-weight: var(--font-weight-semibold);
 }
 
 .mt-12 {

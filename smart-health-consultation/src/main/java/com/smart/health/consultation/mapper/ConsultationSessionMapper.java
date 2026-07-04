@@ -3,6 +3,7 @@ package com.smart.health.consultation.mapper;
 import com.smart.health.consultation.entity.ConsultationSession;
 import org.apache.ibatis.annotations.*;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 /**
@@ -11,44 +12,82 @@ import java.util.List;
 @Mapper
 public interface ConsultationSessionMapper {
 
-    /**
-     * 插入问诊会话记录
-     */
-    @Insert("INSERT INTO t_consultation_session (session_sn, patient_id, draft_id, symptom_draft, chat_log) " +
-            "VALUES (#{sessionSn}, #{patientId}, #{draftId}, #{symptomDraft}, #{chatLog})")
+    @Insert("INSERT INTO t_consultation_session (session_sn, patient_id, draft_id, symptom_draft, file_urls, status, last_chat_time) " +
+            "VALUES (#{sessionSn}, #{patientId}, #{draftId}, #{symptomDraft}, #{fileUrls}, #{status}, #{lastChatTime})")
     @Options(useGeneratedKeys = true, keyProperty = "id")
     int insert(ConsultationSession session);
 
-    /**
-     * 根据ID查询
-     */
-    @Select("SELECT id, session_sn, patient_id, draft_id, symptom_draft, chat_log, create_time, update_time " +
-            "FROM t_consultation_session WHERE id = #{id}")
+    @Select("SELECT * FROM t_consultation_session WHERE id = #{id} AND is_deleted = 0")
     ConsultationSession selectById(@Param("id") Long id);
 
-    /**
-     * 根据会话编号查询
-     */
-    @Select("SELECT id, session_sn, patient_id, draft_id, symptom_draft, chat_log, create_time, update_time " +
-            "FROM t_consultation_session WHERE session_sn = #{sessionSn}")
+    @Select("SELECT * FROM t_consultation_session WHERE session_sn = #{sessionSn} AND is_deleted = 0")
     ConsultationSession selectBySessionSn(@Param("sessionSn") String sessionSn);
 
-    /**
-     * 查询患者的所有问诊会话（按创建时间倒序）
-     */
-    @Select("SELECT id, session_sn, patient_id, draft_id, symptom_draft, chat_log, create_time, update_time " +
-            "FROM t_consultation_session WHERE patient_id = #{patientId} ORDER BY create_time DESC")
-    List<ConsultationSession> selectByPatientId(@Param("patientId") Long patientId);
+    @Select("SELECT * FROM t_consultation_session WHERE session_sn = #{sessionSn}")
+    ConsultationSession selectBySessionSnIncludeDeleted(@Param("sessionSn") String sessionSn);
 
-    /**
-     * 更新对话日志
-     */
-    @Update("UPDATE t_consultation_session SET chat_log = #{chatLog} WHERE id = #{id}")
-    int updateChatLog(@Param("id") Long id, @Param("chatLog") String chatLog);
+    @Select({
+            "<script>",
+            "SELECT * FROM t_consultation_session",
+            "WHERE patient_id = #{patientId} AND is_deleted = 0",
+            "<if test='keyword != null and keyword != \"\"'>",
+            "  AND (symptom_draft LIKE CONCAT('%', #{keyword}, '%')",
+            "       OR ai_summary LIKE CONCAT('%', #{keyword}, '%'))",
+            "</if>",
+            "<if test='status != null and status != \"\"'>",
+            "  AND status = #{status}",
+            "</if>",
+            "<if test='isPinned != null'>",
+            "  AND is_pinned = #{isPinned}",
+            "</if>",
+            "<if test='startDate != null and startDate != \"\"'>",
+            "  AND last_chat_time &gt;= #{startDate}",
+            "</if>",
+            "<if test='endDate != null and endDate != \"\"'>",
+            "  AND last_chat_time &lt;= #{endDate}",
+            "</if>",
+            "ORDER BY is_pinned DESC, last_chat_time DESC",
+            "</script>"
+    })
+    List<ConsultationSession> selectByPatientIdWithFilter(
+            @Param("patientId") Long patientId,
+            @Param("keyword") String keyword,
+            @Param("status") String status,
+            @Param("isPinned") Boolean isPinned,
+            @Param("startDate") String startDate,
+            @Param("endDate") String endDate
+    );
 
-    /**
-     * 更新草稿信息
-     */
+    @Select("SELECT * FROM t_consultation_session WHERE patient_id = #{patientId} AND is_deleted = 1 ORDER BY deleted_at DESC")
+    List<ConsultationSession> selectRecycleBinByPatientId(@Param("patientId") Long patientId);
+
+    @Update("UPDATE t_consultation_session SET status = #{status}, update_time = NOW() WHERE id = #{id}")
+    int updateStatus(@Param("id") Long id, @Param("status") String status);
+
+    @Update("UPDATE t_consultation_session SET is_pinned = NOT is_pinned, update_time = NOW() WHERE id = #{id}")
+    int togglePin(@Param("id") Long id);
+
+    @Update("UPDATE t_consultation_session SET is_deleted = 1, deleted_at = NOW(), update_time = NOW() WHERE id = #{id}")
+    int softDelete(@Param("id") Long id);
+
+    @Update("UPDATE t_consultation_session SET is_deleted = 0, deleted_at = NULL, update_time = NOW() WHERE id = #{id}")
+    int restoreFromRecycleBin(@Param("id") Long id);
+
+    @Delete("DELETE FROM t_consultation_session WHERE id = #{id}")
+    int physicalDelete(@Param("id") Long id);
+
+    @Update("UPDATE t_consultation_session SET last_chat_time = #{lastChatTime}, update_time = NOW() WHERE id = #{id}")
+    int updateLastChatTime(@Param("id") Long id, @Param("lastChatTime") LocalDateTime lastChatTime);
+
+    @Update("UPDATE t_consultation_session SET ai_summary = #{aiSummary}, update_time = NOW() WHERE id = #{id}")
+    int updateAiSummary(@Param("id") Long id, @Param("aiSummary") String aiSummary);
+
+    @Select("SELECT id FROM t_consultation_session WHERE is_deleted = 1 AND deleted_at < #{beforeTime}")
+    List<Long> selectExpiredRecycleBinItems(@Param("beforeTime") LocalDateTime beforeTime);
+
     @Update("UPDATE t_consultation_session SET draft_id = #{draftId}, symptom_draft = #{symptomDraft} WHERE id = #{id}")
     int updateDraft(@Param("id") Long id, @Param("draftId") String draftId, @Param("symptomDraft") String symptomDraft);
+
+    @Select("SELECT COUNT(*) FROM t_consultation_session WHERE patient_id = #{patientId} AND is_deleted = 0")
+    int countByPatientId(@Param("patientId") Long patientId);
 }

@@ -1,15 +1,26 @@
 <template>
   <div class="analysis-page page-container">
-    <van-nav-bar title="AI 分析结果" left-arrow @click-left="$router.back()" />
+    <van-nav-bar title="AI 分析结果" left-arrow @click-left="goHome" />
 
     <div class="analysis-content">
-      <div v-if="fileUrl" class="image-preview">
-        <van-image
-          width="100%"
-          fit="contain"
-          :src="fileUrl"
-          radius="8"
-        />
+      <!-- 多文件预览 -->
+      <div v-if="fileUrls.length" class="file-previews">
+        <div v-for="(url, idx) in fileUrls" :key="idx" class="file-preview-item">
+          <template v-if="isImageUrl(url)">
+            <van-image
+              width="100%"
+              fit="contain"
+              :src="url"
+              radius="8"
+            />
+          </template>
+          <template v-else>
+            <div class="file-info">
+              <van-icon name="description" size="24" />
+              <span class="file-info-name">{{ getFileName(url) }}</span>
+            </div>
+          </template>
+        </div>
       </div>
 
       <div class="analysis-card card">
@@ -40,7 +51,7 @@
           plain
           block
           class="mt-12"
-          @click="$router.push('/consultation/upload')"
+          @click="goReUpload"
         >
           重新上传
         </van-button>
@@ -59,7 +70,7 @@ import { marked } from 'marked'
 const route = useRoute()
 const router = useRouter()
 
-const fileUrl = ref('')
+const fileUrls = ref([])
 const draftId = ref('')
 const symptomDraft = ref('')
 const creating = ref(false)
@@ -70,16 +81,41 @@ const renderedDraft = computed(() => {
 })
 
 onMounted(() => {
-  fileUrl.value = route.query.fileUrl || ''
+  const urls = route.query.fileUrls || ''
+  fileUrls.value = urls ? urls.split(',').filter(Boolean) : []
   draftId.value = route.query.draftId || ''
   symptomDraft.value = route.query.symptomDraft || ''
 })
 
+function isImageUrl(url) {
+  const ext = url.toLowerCase().split('.').pop()
+  return ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp'].includes(ext)
+}
+
+function getFileName(url) {
+  const parts = url.split('/')
+  return parts[parts.length - 1]
+}
+
+function goHome() {
+  router.replace('/home')
+}
+
+function goReUpload() {
+  // 使用 replace 导航到上传页，避免返回到当前分析结果
+  router.replace('/consultation/upload')
+}
+
 async function startConsult() {
   creating.value = true
   try {
-    const sessionSn = await createSession(draftId.value, symptomDraft.value)
-    router.push(`/consultation/chat/${sessionSn}`)
+    const sessionSn = await createSession(
+      draftId.value,
+      symptomDraft.value,
+      fileUrls.value.join(',')
+    )
+    // 使用 replace 导航到对话页，避免返回到分析结果页
+    router.replace(`/consultation/chat/${sessionSn}`)
   } catch (err) {
     // 错误已在拦截器中处理
   } finally {
@@ -89,38 +125,64 @@ async function startConsult() {
 </script>
 
 <style scoped>
+.analysis-page {
+  animation: fade-in 0.3s ease;
+}
+
 .analysis-content {
   padding: 16px;
 }
 
-.image-preview {
+.file-previews {
   margin-bottom: 16px;
-  background: #fff;
-  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.file-preview-item {
+  background: var(--color-card);
+  border-radius: var(--radius-md);
   overflow: hidden;
+}
+
+.file-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 16px;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-caption);
+}
+
+.file-info-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .analysis-card {
   margin-bottom: 16px;
 }
 
-.card-title {
-  font-size: 16px;
-  font-weight: 500;
+.analysis-card .card-title {
+  font-size: var(--font-size-card-title);
+  font-weight: var(--font-weight-semibold);
   margin-bottom: 12px;
   display: flex;
   align-items: center;
   gap: 6px;
+  color: var(--color-text);
 }
 
 .symptom-draft {
-  font-size: 14px;
-  line-height: 1.8;
-  color: #333;
+  font-size: var(--font-size-body);
+  line-height: var(--line-height-relaxed);
+  color: var(--color-text);
 }
 
 .symptom-draft :deep(strong) {
-  color: #1890FF;
+  color: var(--color-primary);
 }
 
 .symptom-draft :deep(ol),
@@ -131,6 +193,13 @@ async function startConsult() {
 
 .analysis-actions {
   margin-top: 24px;
+}
+
+.analysis-actions :deep(.van-button--primary) {
+  height: 48px;
+  border-radius: var(--radius-lg);
+  font-size: 16px;
+  font-weight: var(--font-weight-semibold);
 }
 
 .mt-12 {

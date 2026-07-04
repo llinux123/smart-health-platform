@@ -102,10 +102,8 @@ function downloadPdf() {
 </script>
 
 <style scoped>
-.page-loading {
-  display: flex;
-  justify-content: center;
-  padding: 40px;
+.prescription-detail-page {
+  animation: fade-in 0.3s ease;
 }
 
 .rx-header {
@@ -114,15 +112,16 @@ function downloadPdf() {
 }
 
 .rx-sn {
-  font-size: 18px;
-  font-weight: bold;
-  font-family: monospace;
+  font-size: var(--font-size-title);
+  font-weight: var(--font-weight-bold);
+  font-family: var(--font-mono);
   margin-bottom: 8px;
+  color: var(--color-text);
 }
 
 .rx-date {
-  font-size: 13px;
-  color: #999;
+  font-size: var(--font-size-caption);
+  color: var(--color-text-tertiary);
   margin-top: 8px;
 }
 
@@ -130,17 +129,17 @@ function downloadPdf() {
   margin: 0 16px 16px;
 }
 
-.section-title {
+.rx-section .section-title {
   font-size: 15px;
-  font-weight: 500;
+  font-weight: var(--font-weight-semibold);
   margin-bottom: 12px;
-  color: #333;
+  color: var(--color-text);
 }
 
 .diagnosis-text {
-  font-size: 14px;
-  line-height: 1.6;
-  color: #555;
+  font-size: var(--font-size-body);
+  line-height: var(--line-height-relaxed);
+  color: var(--color-text-secondary);
 }
 
 .item-value {
@@ -149,9 +148,9 @@ function downloadPdf() {
 
 .item-price {
   display: block;
-  color: #F5222D;
-  font-weight: bold;
-  font-size: 14px;
+  color: var(--color-accent);
+  font-weight: var(--font-weight-bold);
+  font-size: var(--font-size-body);
 }
 
 .total-row {
@@ -159,14 +158,15 @@ function downloadPdf() {
   justify-content: space-between;
   align-items: center;
   padding: 12px 16px;
-  border-top: 1px solid #f0f0f0;
-  font-size: 14px;
+  border-top: 1px solid var(--color-divider);
+  font-size: var(--font-size-body);
+  color: var(--color-text);
 }
 
 .total-price {
-  color: #F5222D;
-  font-weight: bold;
-  font-size: 16px;
+  color: var(--color-accent);
+  font-weight: var(--font-weight-bold);
+  font-size: var(--font-size-card-title);
 }
 
 .rx-actions {

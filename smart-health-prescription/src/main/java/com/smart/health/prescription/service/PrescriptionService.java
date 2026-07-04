@@ -62,4 +62,12 @@ public interface PrescriptionService {
      * @return 待审核处方列表
      */
     List<PrescriptionVO> listPendingAudit();
+
+    /**
+     * 统计患者的处方数量
+     *
+     * @param patientId 患者ID
+     * @return 处方数量
+     */
+    int countByPatientId(Long patientId);
 }

@@ -100,12 +100,12 @@ class ScheduleServiceImplTest {
         // Given
         SeckillRequest request = new SeckillRequest();
         request.setScheduleId(999L);
-        request.setPatientId(1L);
+        Long patientId = 1L;
 
         when(doctorScheduleMapper.selectById(999L)).thenReturn(null);
 
         // When & Then
-        assertThatThrownBy(() -> scheduleService.seckill(request))
+        assertThatThrownBy(() -> scheduleService.seckill(request, patientId))
                 .isInstanceOf(BusinessException.class)
                 .extracting("code").isEqualTo(ResultCode.SCHEDULE_NOT_FOUND.getCode());
 
@@ -118,7 +118,7 @@ class ScheduleServiceImplTest {
         // Given
         SeckillRequest request = new SeckillRequest();
         request.setScheduleId(1L);
-        request.setPatientId(100L);
+        Long patientId = 100L;
 
         DoctorSchedule schedule = new DoctorSchedule();
         schedule.setId(1L);
@@ -128,7 +128,7 @@ class ScheduleServiceImplTest {
         when(scheduleRedisConfig.isPatientInSeckillSet(1L, 100L)).thenReturn(true);
 
         // When & Then
-        assertThatThrownBy(() -> scheduleService.seckill(request))
+        assertThatThrownBy(() -> scheduleService.seckill(request, patientId))
                 .isInstanceOf(BusinessException.class)
                 .extracting("code").isEqualTo(ResultCode.REPEAT_SECKILL.getCode());
 
@@ -141,7 +141,7 @@ class ScheduleServiceImplTest {
         // Given
         SeckillRequest request = new SeckillRequest();
         request.setScheduleId(1L);
-        request.setPatientId(100L);
+        Long patientId = 100L;
 
         DoctorSchedule schedule = new DoctorSchedule();
         schedule.setId(1L);
@@ -152,7 +152,7 @@ class ScheduleServiceImplTest {
         when(scheduleRedisConfig.tryAcquireSeckillLock(1L, 100L, 3L, 10L)).thenReturn(null);
 
         // When & Then
-        assertThatThrownBy(() -> scheduleService.seckill(request))
+        assertThatThrownBy(() -> scheduleService.seckill(request, patientId))
                 .isInstanceOf(BusinessException.class)
                 .extracting("code").isEqualTo(ResultCode.SECKILL_FAIL.getCode());
 
@@ -165,7 +165,7 @@ class ScheduleServiceImplTest {
         // Given
         SeckillRequest request = new SeckillRequest();
         request.setScheduleId(1L);
-        request.setPatientId(100L);
+        Long patientId = 100L;
 
         DoctorSchedule schedule = new DoctorSchedule();
         schedule.setId(1L);
@@ -178,7 +178,7 @@ class ScheduleServiceImplTest {
         when(scheduleRedisConfig.decrementStock(1L)).thenReturn(-1L);
 
         // When & Then
-        assertThatThrownBy(() -> scheduleService.seckill(request))
+        assertThatThrownBy(() -> scheduleService.seckill(request, patientId))
                 .isInstanceOf(BusinessException.class)
                 .extracting("code").isEqualTo(ResultCode.STOCK_EMPTY.getCode());
 
@@ -192,7 +192,7 @@ class ScheduleServiceImplTest {
         // Given
         SeckillRequest request = new SeckillRequest();
         request.setScheduleId(1L);
-        request.setPatientId(100L);
+        Long patientId = 100L;
 
         DoctorSchedule schedule = new DoctorSchedule();
         schedule.setId(1L);
@@ -207,7 +207,7 @@ class ScheduleServiceImplTest {
         when(objectMapper.writeValueAsString(any())).thenThrow(new RuntimeException("JSON error"));
 
         // When & Then
-        assertThatThrownBy(() -> scheduleService.seckill(request))
+        assertThatThrownBy(() -> scheduleService.seckill(request, patientId))
                 .isInstanceOf(BusinessException.class)
                 .extracting("code").isEqualTo(ResultCode.SECKILL_FAIL.getCode());
 
@@ -222,7 +222,7 @@ class ScheduleServiceImplTest {
         // Given
         SeckillRequest request = new SeckillRequest();
         request.setScheduleId(1L);
-        request.setPatientId(100L);
+        Long patientId = 100L;
 
         DoctorSchedule schedule = new DoctorSchedule();
         schedule.setId(1L);
@@ -237,7 +237,7 @@ class ScheduleServiceImplTest {
         when(objectMapper.writeValueAsString(any())).thenReturn("{\"orderSn\":\"REG_20260629_000001\"}");
 
         // When
-        SeckillResponse response = scheduleService.seckill(request);
+        SeckillResponse response = scheduleService.seckill(request, patientId);
 
         // Then
         assertThat(response).isNotNull();

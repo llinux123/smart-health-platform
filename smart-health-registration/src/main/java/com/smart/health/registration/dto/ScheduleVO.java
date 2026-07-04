@@ -22,6 +22,12 @@ public class ScheduleVO {
     @Schema(description = "医生姓名")
     private String doctorName;
 
+    @Schema(description = "医生头像URL")
+    private String doctorAvatar;
+
+    @Schema(description = "科室ID")
+    private Long departmentId;
+
     @Schema(description = "科室名称")
     private String deptName;
 

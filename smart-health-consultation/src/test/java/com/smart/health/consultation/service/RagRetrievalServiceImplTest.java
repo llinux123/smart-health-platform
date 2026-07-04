@@ -12,7 +12,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.ai.embedding.EmbeddingClient;
+import org.springframework.ai.embedding.EmbeddingModel;
 import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
 import org.springframework.data.elasticsearch.core.SearchHit;
 import org.springframework.data.elasticsearch.core.SearchHits;
@@ -39,7 +39,7 @@ class RagRetrievalServiceImplTest {
     private ElasticsearchClient esClient;
 
     @Mock
-    private EmbeddingClient embeddingClient;
+    private EmbeddingModel embeddingModel;
 
     private RagRetrievalServiceImpl ragRetrievalService;
 
@@ -57,9 +57,9 @@ class RagRetrievalServiceImplTest {
     void setUp() {
         ragRetrievalService = new RagRetrievalServiceImpl(elasticsearchOperations, esClient);
         try {
-            var field = RagRetrievalServiceImpl.class.getDeclaredField("embeddingClient");
+            var field = RagRetrievalServiceImpl.class.getDeclaredField("embeddingModel");
             field.setAccessible(true);
-            field.set(ragRetrievalService, embeddingClient);
+            field.set(ragRetrievalService, embeddingModel);
         } catch (Exception e) {
             throw new RuntimeException(e);
         }
@@ -69,8 +69,8 @@ class RagRetrievalServiceImplTest {
     @DisplayName("retrieve - 混合检索成功返回结果")
     void retrieve_hybridSearch_success() throws Exception {
         // Given
-        List<Double> embedding = List.of(0.1, 0.2, 0.3);
-        when(embeddingClient.embed(anyString())).thenReturn(embedding);
+        float[] embedding = new float[]{0.1f, 0.2f, 0.3f};
+        when(embeddingModel.embed(anyString())).thenReturn(embedding);
 
         MedicalKnowledgeDocument doc = MedicalKnowledgeDocument.builder()
                 .docId("MED-001").title("测试文档").category("测试科")
@@ -86,14 +86,14 @@ class RagRetrievalServiceImplTest {
         // Then
         assertThat(results).hasSize(1);
         assertThat(results.get(0)).contains("测试文档");
-        verify(embeddingClient).embed("头痛");
+        verify(embeddingModel).embed("头痛");
     }
 
     @Test
     @DisplayName("retrieve - Embedding 失败降级为 BM25")
     void retrieve_embeddingFails_fallbackToBm25() throws Exception {
         // Given
-        when(embeddingClient.embed(anyString())).thenThrow(new RuntimeException("Embedding API unavailable"));
+        when(embeddingModel.embed(anyString())).thenThrow(new RuntimeException("Embedding API unavailable"));
 
         MedicalKnowledgeDocument doc = MedicalKnowledgeDocument.builder()
                 .docId("MED-002").title("BM25文档").category("内科")
@@ -115,7 +115,7 @@ class RagRetrievalServiceImplTest {
     @DisplayName("retrieve - ES 异常返回空列表")
     void retrieve_esException_returnsEmpty() throws Exception {
         // Given
-        when(embeddingClient.embed(anyString())).thenReturn(List.of(0.1));
+        when(embeddingModel.embed(anyString())).thenReturn(new float[]{0.1f});
         when(elasticsearchOperations.search(any(Query.class), eq(MedicalKnowledgeDocument.class)))
                 .thenThrow(new RuntimeException("ES connection refused"));
 
@@ -130,7 +130,7 @@ class RagRetrievalServiceImplTest {
     @DisplayName("retrieveAsContext - 空结果返回空字符串")
     void retrieveAsContext_empty_returnsEmptyString() throws Exception {
         // Given
-        when(embeddingClient.embed(anyString())).thenReturn(List.of(0.1));
+        when(embeddingModel.embed(anyString())).thenReturn(new float[]{0.1f});
         when(elasticsearchOperations.search(any(Query.class), eq(MedicalKnowledgeDocument.class)))
                 .thenThrow(new RuntimeException("ES down"));
 
@@ -151,7 +151,7 @@ class RagRetrievalServiceImplTest {
         ElasticsearchIndicesClient indicesClient = mock(ElasticsearchIndicesClient.class);
         when(esClient.indices()).thenReturn(indicesClient);
 
-        when(embeddingClient.embed(anyString())).thenReturn(List.of(0.1, 0.2, 0.3));
+        when(embeddingModel.embed(anyString())).thenReturn(new float[]{0.1f, 0.2f, 0.3f});
 
         // When
         int count = ragRetrievalService.importDocument("测试标题", "测试内容", "测试科");

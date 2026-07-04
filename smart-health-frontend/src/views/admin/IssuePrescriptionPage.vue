@@ -43,14 +43,21 @@
           <span class="medicine-index">药品 {{ idx + 1 }}</span>
           <van-icon v-if="form.medicines.length > 1" name="cross" class="remove-btn" @click="removeMedicine(idx)" />
         </div>
-        <van-field v-model="med.medicineId" label="药品ID" type="number" placeholder="药品ID" />
-        <van-field v-model="med.medicineName" label="药品名称" placeholder="药品名称" />
+        <!-- 药品搜索选择 -->
+        <van-field
+          :model-value="med.medicineName || '点击选择药品'"
+          is-link
+          readonly
+          label="药品"
+          :class="{ 'field-placeholder': !med.medicineName }"
+          @click="showDrugPicker(idx)"
+        />
         <van-field v-model="med.pharmacyId" label="药房ID" type="number" placeholder="药房ID" />
         <van-field v-model="med.quantity" label="数量" type="number" placeholder="数量" />
-        <van-field v-model="med.unit" label="单位" placeholder="如：盒、支、瓶" />
-        <van-field v-model="med.spec" label="规格" placeholder="如：15g/支、0.5g*24粒" />
+        <van-field v-model="med.unit" label="单位" placeholder="如：盒、支、瓶" readonly />
+        <van-field v-model="med.spec" label="规格" placeholder="如：15g/支、0.5g*24粒" readonly />
         <van-field v-model="med.usage" label="用法用量" placeholder="如：口服，每日3次" />
-        <van-field v-model="med.price" label="单价" type="number" placeholder="如：25.50" />
+        <van-field v-model="med.price" label="单价" type="number" placeholder="如：25.50" readonly />
       </div>
     </div>
 
@@ -59,6 +66,35 @@
         开具处方
       </van-button>
     </div>
+
+    <!-- 药品搜索弹出框 -->
+    <van-popup v-model:show="showPicker" position="bottom" round style="max-height: 70vh">
+      <div class="picker-header">
+        <span class="picker-title">选择药品</span>
+        <van-icon name="cross" @click="showPicker = false" />
+      </div>
+      <van-search
+        v-model="searchKeyword"
+        placeholder="输入药品名称搜索"
+        @search="doSearch"
+        @update:model-value="onSearchInput"
+      />
+      <van-loading v-if="searchLoading" class="search-loading" size="24" />
+      <van-cell-group v-else-if="searchResults.length > 0">
+        <van-cell
+          v-for="item in searchResults"
+          :key="item.id"
+          :title="item.name"
+          :label="`${item.spec || ''} ${item.manufacturer || ''}`"
+          :value="item.price ? `¥${item.price}` : ''"
+          @click="selectMedicine(item)"
+          clickable
+        />
+      </van-cell-group>
+      <div v-else-if="searchKeyword && !searchLoading" class="empty-result">
+        未找到匹配药品
+      </div>
+    </van-popup>
   </div>
 </template>
 
@@ -66,10 +102,18 @@
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { showSuccessToast } from 'vant'
-import { issuePrescription } from '@/api/prescription'
+import { issuePrescription, searchMedicine } from '@/api/prescription'
 
 const router = useRouter()
 const submitting = ref(false)
+
+// 药品搜索
+const showPicker = ref(false)
+const searchKeyword = ref('')
+const searchLoading = ref(false)
+const searchResults = ref([])
+let pickerTargetIdx = -1
+let searchTimer: ReturnType<typeof setTimeout> | null = null
 
 function createEmptyMed() {
   return { medicineId: '', medicineName: '', pharmacyId: '', quantity: '', unit: '', spec: '', usage: '', price: '' }
@@ -81,6 +125,43 @@ const form = ref({
   diagnosis: '',
   medicines: [createEmptyMed()]
 })
+
+function showDrugPicker(idx: number) {
+  pickerTargetIdx = idx
+  searchKeyword.value = ''
+  searchResults.value = []
+  showPicker.value = true
+  // 自动加载所有药品
+  doSearch()
+}
+
+function onSearchInput() {
+  if (searchTimer) clearTimeout(searchTimer)
+  searchTimer = setTimeout(() => doSearch(), 300)
+}
+
+async function doSearch() {
+  searchLoading.value = true
+  try {
+    searchResults.value = await searchMedicine(searchKeyword.value, 20)
+  } catch {
+    // 静默
+  } finally {
+    searchLoading.value = false
+  }
+}
+
+function selectMedicine(item: any) {
+  const med = form.value.medicines[pickerTargetIdx]
+  if (med) {
+    med.medicineId = item.id
+    med.medicineName = item.name
+    med.unit = item.unit || ''
+    med.spec = item.spec || ''
+    med.price = item.price != null ? String(item.price) : ''
+  }
+  showPicker.value = false
+}
 
 function addMedicine() {
   form.value.medicines.push(createEmptyMed())
@@ -135,25 +216,35 @@ async function onSubmit() {
 </script>
 
 <style scoped>
-.form-section {
-  margin: 16px;
+.issue-prescription-page {
+  animation: fade-in 0.3s ease;
 }
 
-.section-title {
+.form-section {
+  margin: 16px;
+  background: var(--color-card);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card);
+  padding: 16px;
+  margin-bottom: 16px;
+}
+
+.form-section .section-title {
   font-size: 15px;
-  font-weight: 500;
+  font-weight: var(--font-weight-semibold);
   margin-bottom: 12px;
-  color: #333;
+  color: var(--color-text);
   display: flex;
   justify-content: space-between;
   align-items: center;
 }
 
 .medicine-item {
-  border: 1px solid #eee;
-  border-radius: 8px;
+  border: 1px solid var(--color-divider);
+  border-radius: var(--radius-md);
   padding: 12px;
   margin-bottom: 12px;
+  background: var(--color-bg);
 }
 
 .medicine-header {
@@ -164,18 +255,52 @@ async function onSubmit() {
 }
 
 .medicine-index {
-  font-size: 13px;
-  font-weight: 500;
-  color: #1989fa;
+  font-size: var(--font-size-caption);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-primary);
 }
 
 .remove-btn {
-  color: #ee0a24;
+  color: var(--color-danger);
   font-size: 16px;
   cursor: pointer;
 }
 
 .action-bar {
   padding: 16px;
+}
+
+.action-bar :deep(.van-button--primary) {
+  height: 48px;
+  border-radius: var(--radius-lg);
+  font-weight: var(--font-weight-semibold);
+}
+
+.picker-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px;
+  border-bottom: 1px solid var(--color-divider);
+}
+
+.picker-title {
+  font-size: 16px;
+  font-weight: var(--font-weight-semibold);
+}
+
+.search-loading {
+  padding: 40px 0;
+}
+
+.empty-result {
+  text-align: center;
+  padding: 40px 16px;
+  color: var(--color-text-tertiary);
+  font-size: 14px;
+}
+
+.field-placeholder :deep(.van-field__control) {
+  color: var(--color-text-tertiary);
 }
 </style>

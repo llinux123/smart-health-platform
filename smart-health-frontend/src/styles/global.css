@@ -1,54 +1,360 @@
 @import './variables.css';
 
+/* ============================================
+   Base Reset
+   ============================================ */
 * {
   margin: 0;
   padding: 0;
   box-sizing: border-box;
+  -webkit-tap-highlight-color: transparent;
 }
 
+html,
 body {
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  font-family: var(--font-family);
   font-size: var(--font-size-body);
+  font-weight: var(--font-weight-regular);
+  line-height: var(--line-height-normal);
   color: var(--color-text);
   background-color: var(--color-bg);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  overscroll-behavior: none;
 }
 
 a {
   color: var(--color-primary);
   text-decoration: none;
+  transition: color var(--transition-fast);
 }
 
-/* Vant 主题覆盖 */
-:root {
-  --van-primary-color: var(--color-primary);
-  --van-success-color: var(--color-success);
-  --van-warning-color: var(--color-warning);
-  --van-danger-color: var(--color-danger);
+a:hover {
+  color: var(--color-primary-dark);
 }
 
-/* 页面容器 */
+/* ============================================
+   Animations
+   ============================================ */
+
+/* 生命脉冲 - 签名动效 */
+@keyframes pulse-ring {
+  0% {
+    transform: scale(0.95);
+    opacity: 0.7;
+  }
+  50% {
+    transform: scale(1.08);
+    opacity: 0.3;
+  }
+  100% {
+    transform: scale(0.95);
+    opacity: 0.7;
+  }
+}
+
+@keyframes pulse-dot {
+  0%, 100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.15);
+    opacity: 0.8;
+  }
+}
+
+/* 生长曲线——签名动效 */
+@keyframes draw-growth {
+  from {
+    stroke-dashoffset: 520;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+/* 渐入动画 */
+@keyframes fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fade-in-up {
+  from {
+    opacity: 0;
+    transform: translateY(24px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fade-in-down {
+  from {
+    opacity: 0;
+    transform: translateY(-12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes scale-in {
+  from {
+    opacity: 0;
+    transform: scale(0.92);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* 滑动动画 */
+@keyframes slide-up {
+  from {
+    transform: translateY(100%);
+  }
+  to {
+    transform: translateY(0);
+  }
+}
+
+/* 骨架屏闪烁 */
+@keyframes shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+/* 浮动悬浮 */
+@keyframes float {
+  0%, 100% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-6px);
+  }
+}
+
+/* ============================================
+   Page Transitions
+   ============================================ */
+.fade-slide-enter-active,
+.fade-slide-leave-active {
+  transition: all var(--transition-normal);
+}
+
+.fade-slide-enter-from {
+  opacity: 0;
+  transform: translateX(30px);
+}
+
+.fade-slide-leave-to {
+  opacity: 0;
+  transform: translateX(-30px);
+}
+
+/* ============================================
+   Page Container
+   ============================================ */
 .page-container {
   min-height: 100vh;
-  padding-bottom: 60px; /* TabBar 高度预留 */
-  background-color: var(--color-bg);
+  padding-bottom: 60px;
+  background: var(--color-bg);
 }
 
 .page-container--no-tab {
   padding-bottom: 0;
 }
 
-/* 卡片通用样式 */
+/* ============================================
+   Card 通用样式
+   ============================================ */
 .card {
   background: var(--color-card);
   border-radius: var(--radius-md);
   box-shadow: var(--shadow-card);
   padding: var(--spacing-md);
   margin-bottom: var(--spacing-md);
+  transition: transform var(--transition-fast), box-shadow var(--transition-fast);
 }
 
-/* 安全区域底部 */
+.card:active {
+  transform: scale(0.99);
+}
+
+.card-elevated {
+  box-shadow: var(--shadow-lg);
+}
+
+/* ============================================
+   Glass Card 毛玻璃卡片
+   ============================================ */
+.glass-card {
+  background: var(--glass-bg);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--glass-shadow);
+}
+
+/* ============================================
+   Section 标题
+   ============================================ */
+.section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--spacing-md) var(--spacing-md) var(--spacing-sm);
+}
+
+.section-title {
+  font-size: var(--font-size-card-title);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text);
+  line-height: var(--line-height-tight);
+}
+
+.section-more {
+  font-size: var(--font-size-caption);
+  color: var(--color-text-secondary);
+}
+
+/* ============================================
+   Badge / Tag
+   ============================================ */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: var(--radius-full);
+  font-size: var(--font-size-small);
+  font-weight: var(--font-weight-medium);
+}
+
+.badge-primary {
+  background: var(--color-primary-light);
+  color: var(--color-primary-dark);
+}
+
+.badge-warm {
+  background: var(--color-warm-light);
+  color: var(--color-warm);
+}
+
+.badge-success {
+  background: #ECFDF5;
+  color: #065F46;
+}
+
+.badge-warning {
+  background: #FFFBEB;
+  color: #92400E;
+}
+
+.badge-danger {
+  background: #FEF2F2;
+  color: #991B1B;
+}
+
+/* ============================================
+   Stats Row
+   ============================================ */
+.stats-row {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+}
+
+.stat-item {
+  flex: 1;
+  text-align: center;
+}
+
+.stat-value {
+  display: block;
+  font-size: var(--font-size-title-lg);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text);
+  line-height: var(--line-height-tight);
+}
+
+.stat-label {
+  display: block;
+  font-size: var(--font-size-caption);
+  color: var(--color-text-secondary);
+  margin-top: 2px;
+}
+
+/* ============================================
+   Divider
+   ============================================ */
+.divider {
+  height: 1px;
+  background: var(--color-divider);
+  margin: var(--spacing-md) 0;
+  border: none;
+}
+
+/* ============================================
+   Loading
+   ============================================ */
+.page-loading {
+  display: flex;
+  justify-content: center;
+  padding: var(--spacing-2xl);
+}
+
+.skeleton {
+  background: linear-gradient(
+    90deg,
+    var(--color-card-border) 25%,
+    #E5E7EB 50%,
+    var(--color-card-border) 75%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+  border-radius: var(--radius-sm);
+}
+
+/* ============================================
+   Safe Area
+   ============================================ */
 .safe-area-bottom {
   padding-bottom: env(safe-area-inset-bottom);
 }
+
+/* ============================================
+   Utility
+   ============================================ */
+.text-center { text-align: center; }
+.text-right { text-align: right; }
+.text-primary { color: var(--color-primary); }
+.text-accent { color: var(--color-accent); }
+.text-secondary { color: var(--color-text-secondary); }
+
+.mt-4 { margin-top: 4px; }
+.mt-8 { margin-top: 8px; }
+.mt-12 { margin-top: 12px; }
+.mt-16 { margin-top: 16px; }
+.mt-24 { margin-top: 24px; }
+
+.mb-8 { margin-bottom: 8px; }
+.mb-16 { margin-bottom: 16px; }
+
+.p-16 { padding: 16px; }
+.px-16 { padding-left: 16px; padding-right: 16px; }

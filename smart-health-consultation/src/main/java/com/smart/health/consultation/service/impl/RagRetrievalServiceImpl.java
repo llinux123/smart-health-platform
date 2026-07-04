@@ -11,7 +11,7 @@ import com.smart.health.consultation.entity.MedicalKnowledgeDocument;
 import com.smart.health.consultation.service.RagRetrievalService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.ai.embedding.EmbeddingClient;
+import org.springframework.ai.embedding.EmbeddingModel;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.elasticsearch.client.elc.NativeQuery;
 import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
@@ -37,7 +37,7 @@ public class RagRetrievalServiceImpl implements RagRetrievalService {
     private final ElasticsearchClient esClient;
 
     @Autowired(required = false)
-    private EmbeddingClient embeddingClient;
+    private EmbeddingModel embeddingModel;
 
     @Override
     public List<String> retrieve(String query, int topK) {
@@ -94,12 +94,11 @@ public class RagRetrievalServiceImpl implements RagRetrievalService {
     private SearchHits<MedicalKnowledgeDocument> searchDocuments(String query, int topK) {
         try {
             // 尝试混合检索（需要 Embedding 可用）
-            if (embeddingClient != null) {
+            if (embeddingModel != null) {
                 try {
-                    List<Double> queryEmbedding = embeddingClient.embed(query);
-                    List<Float> floatEmbedding = queryEmbedding.stream()
-                            .map(Double::floatValue)
-                            .toList();
+                    float[] rawEmbedding = embeddingModel.embed(query);
+                    List<Float> floatEmbedding = new java.util.ArrayList<>(rawEmbedding.length);
+                    for (float v : rawEmbedding) floatEmbedding.add(v);
                     return hybridSearch(query, floatEmbedding, topK);
                 } catch (Exception e) {
                     log.warn("Embedding 调用失败，降级为纯 BM25 检索: {}", e.getMessage());
@@ -188,10 +187,12 @@ public class RagRetrievalServiceImpl implements RagRetrievalService {
                     .build();
 
             // 生成 embedding 向量
-            if (embeddingClient != null) {
+            if (embeddingModel != null) {
                 try {
-                    List<Double> embedding = embeddingClient.embed(title + " " + content);
-                    doc.setEmbedding(embedding.stream().map(Double::floatValue).toList());
+                    float[] rawEmbedding = embeddingModel.embed(title + " " + content);
+                    List<Float> floatList = new java.util.ArrayList<>(rawEmbedding.length);
+                    for (float v : rawEmbedding) floatList.add(v);
+                    doc.setEmbedding(floatList);
                 } catch (Exception e) {
                     log.warn("导入文档 Embedding 生成失败: {}", e.getMessage());
                 }

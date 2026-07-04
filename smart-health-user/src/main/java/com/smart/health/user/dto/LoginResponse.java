@@ -14,7 +14,18 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 public class LoginResponse {
     private String token;
-    private Long patientId;
+    private Long userId;
     private String username;
     private String realName;
+    private String role;
+
+    /**
+     * 关联医生ID（仅医生角色有值）
+     */
+    private Long doctorId;
+
+    /**
+     * 兼容旧版患者登录（患者角色有值）
+     */
+    private Long patientId;
 }

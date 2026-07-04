@@ -3,9 +3,13 @@ package com.smart.health.common.exception;
 import com.smart.health.common.result.Result;
 import com.smart.health.common.result.ResultCode;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
+import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
+import org.springframework.web.bind.MissingServletRequestParameterException;
 
 /**
  * 全局异常处理器
@@ -27,6 +31,7 @@ public class GlobalExceptionHandler {
      * 参数校验异常
      */
     @ExceptionHandler(MethodArgumentNotValidException.class)
+    @ResponseStatus(HttpStatus.BAD_REQUEST)
     public Result<?> handleValidException(MethodArgumentNotValidException e) {
         String message = e.getBindingResult().getAllErrors().get(0).getDefaultMessage();
         log.warn("参数校验失败: {}", message);
@@ -40,6 +45,26 @@ public class GlobalExceptionHandler {
     public Result<?> handleIllegalArgumentException(IllegalArgumentException e) {
         log.warn("非法参数: {}", e.getMessage());
         return Result.fail(ResultCode.PARAM_ERROR, e.getMessage());
+    }
+
+    /**
+     * 请求参数类型不匹配
+     */
+    @ExceptionHandler(MethodArgumentTypeMismatchException.class)
+    public Result<?> handleTypeMismatchException(MethodArgumentTypeMismatchException e) {
+        log.warn("参数类型不匹配: {} = {}", e.getName(), e.getValue());
+        return Result.fail(ResultCode.PARAM_ERROR,
+                "参数「" + e.getName() + "」格式不正确");
+    }
+
+    /**
+     * 缺少必填请求参数
+     */
+    @ExceptionHandler(MissingServletRequestParameterException.class)
+    public Result<?> handleMissingParamException(MissingServletRequestParameterException e) {
+        log.warn("缺少必填参数: {}", e.getParameterName());
+        return Result.fail(ResultCode.PARAM_ERROR,
+                "缺少必填参数「" + e.getParameterName() + "」");
     }
 
     /**

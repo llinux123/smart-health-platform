@@ -22,6 +22,11 @@
 
     <div class="login-body">
       <div class="login-card">
+        <van-tabs v-model:active="loginType" shrink class="login-tabs" @change="onTabChange">
+          <van-tab title="患者登录" name="PATIENT" />
+          <van-tab title="员工登录" name="STAFF" />
+        </van-tabs>
+
         <van-form @submit="onSubmit" class="login-form">
           <van-field
             v-model="form.username"
@@ -57,7 +62,7 @@
             >
               登录
             </van-button>
-            <p class="login-register-link">
+            <p v-if="loginType === 'PATIENT'" class="login-register-link">
               还没有账号？
               <router-link to="/register">立即注册</router-link>
             </p>
@@ -80,12 +85,19 @@ const router = useRouter()
 const route = useRoute()
 const userStore = useUserStore()
 
+const loginType = ref('PATIENT')
 const form = reactive({
   username: '',
   password: ''
 })
 const loading = ref(false)
 const rememberMe = ref(false)
+
+function onTabChange() {
+  // 切换 Tab 时清空表单
+  form.username = ''
+  form.password = ''
+}
 
 async function onSubmit() {
   if (!form.username || !form.password) {
@@ -95,13 +107,13 @@ async function onSubmit() {
 
   loading.value = true
   try {
-    const data = await login(form)
+    const data = await login({ ...form, loginType: loginType.value })
     setRememberMe(rememberMe.value)
     userStore.setLoginInfo(data)
     showToast('登录成功')
     const redirect = (Array.isArray(route.query.redirect) ? route.query.redirect[0] : route.query.redirect) || '/home'
     // 恢复原始路由的 query 参数
-    let targetQuery: Record<string, string> = {}
+    let targetQuery = {}
     const rqRaw = route.query._rq
     const rqStr = Array.isArray(rqRaw) ? rqRaw[0] : rqRaw
     if (rqStr) {
@@ -196,8 +208,30 @@ async function onSubmit() {
   background: var(--color-card);
   border: 1px solid var(--color-card-border);
   border-radius: var(--radius-xl);
-  padding: 8px 20px 24px;
+  padding: 0 20px 24px;
   box-shadow: var(--shadow-lg);
+}
+
+.login-tabs :deep(.van-tabs__nav) {
+  background: transparent;
+}
+
+.login-tabs :deep(.van-tab) {
+  font-size: 15px;
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-secondary);
+}
+
+.login-tabs :deep(.van-tab--active) {
+  color: var(--color-primary);
+  font-weight: var(--font-weight-semibold);
+}
+
+.login-tabs :deep(.van-tabs__line) {
+  background: var(--color-primary);
+  width: 32px;
+  height: 3px;
+  border-radius: 2px;
 }
 
 .login-form :deep(.van-field) {

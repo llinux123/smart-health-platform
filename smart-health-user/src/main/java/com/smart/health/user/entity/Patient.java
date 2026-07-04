@@ -15,5 +15,7 @@ public class Patient {
     private String idCard;
     private String phone;
     private Integer gender;
+    private Integer isDeleted;
+    private LocalDateTime deletedAt;
     private LocalDateTime createTime;
 }

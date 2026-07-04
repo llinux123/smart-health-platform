@@ -1,0 +1,107 @@
+server:
+  port: 9000
+
+spring:
+  application:
+    name: gateway-service
+
+  cloud:
+    nacos:
+      discovery:
+        server-addr: ${NACOS_SERVER_ADDR:localhost:8848}
+
+    gateway:
+      # 使用 Nacos 服务发现进行路由
+      discovery:
+        locator:
+          enabled: true
+          lower-case-service-id: true
+
+      routes:
+        # ===== user-service =====
+        - id: user-service-auth
+          uri: lb://smart-health-platform
+          predicates:
+            - Path=/api/v1/auth/**
+
+        - id: user-service-staff
+          uri: lb://smart-health-platform
+          predicates:
+            - Path=/api/v1/staff/**
+
+        - id: user-service-admin-patients
+          uri: lb://smart-health-platform
+          predicates:
+            - Path=/api/v1/admin/patients/**
+
+        # ===== registration-service =====
+        - id: registration-service-schedule
+          uri: lb://smart-health-platform
+          predicates:
+            - Path=/api/v1/schedule/**
+
+        - id: registration-service-registration
+          uri: lb://smart-health-platform
+          predicates:
+            - Path=/api/v1/registration/**
+
+        - id: registration-service-doctor
+          uri: lb://smart-health-platform
+          predicates:
+            - Path=/api/v1/doctor/**
+
+        - id: registration-service-dept
+          uri: lb://smart-health-platform
+          predicates:
+            - Path=/api/v1/dept/**
+
+        # ===== consultation-service =====
+        - id: consultation-service-ai
+          uri: lb://smart-health-platform
+          predicates:
+            - Path=/api/v1/ai/**
+
+        - id: consultation-service-files
+          uri: lb://smart-health-platform
+          predicates:
+            - Path=/api/v1/files/**
+
+        # ===== prescription-service =====
+        - id: prescription-service-issue
+          uri: lb://smart-health-platform
+          predicates:
+            - Path=/api/v1/prescription/**
+
+        - id: prescription-service-prescriptions
+          uri: lb://smart-health-platform
+          predicates:
+            - Path=/api/v1/prescriptions/**
+
+        - id: prescription-service-pharmacy
+          uri: lb://smart-health-platform
+          predicates:
+            - Path=/api/v1/pharmacy/**
+
+        # ===== dashboard (放在 user-service，聚合各服务统计数据) =====
+        - id: user-service-dashboard
+          uri: lb://smart-health-platform
+          predicates:
+            - Path=/api/v1/dashboard/**
+
+      globalcors:
+        cors-configurations:
+          '[/**]':
+            allowedOriginPatterns: "*"
+            allowedMethods: "*"
+            allowedHeaders: "*"
+            allowCredentials: true
+            maxAge: 3600
+
+# JWT (与 user-service 共享同一密钥)
+jwt:
+  secret: ${JWT_SECRET:c21hcnQtaGVhbHRoLXBsYXRmb3JtLWp3dC1zZWNyZXQta2V5LTIwMjY=}
+
+logging:
+  level:
+    com.smart.health.gateway: debug
+    org.springframework.cloud.gateway: debug

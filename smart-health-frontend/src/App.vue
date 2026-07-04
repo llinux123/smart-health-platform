@@ -1,21 +1,31 @@
 <template>
   <div id="app">
-    <router-view />
+    <router-view v-slot="{ Component }">
+      <transition name="fade-slide" mode="out-in">
+        <component :is="Component" />
+      </transition>
+    </router-view>
     <AppTabBar v-if="showTabBar" />
   </div>
 </template>
 
 <script setup>
-import { computed } from 'vue'
+import { computed, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import AppTabBar from '@/components/AppTabBar.vue'
 
 const route = useRoute()
 const showTabBar = computed(() => !route.meta.hideTab)
+
+// 页面切换时滚动到顶部
+watch(() => route.path, () => {
+  window.scrollTo({ top: 0, behavior: 'instant' })
+})
 </script>
 
 <style>
 #app {
   min-height: 100vh;
+  background: var(--color-bg);
 }
 </style>

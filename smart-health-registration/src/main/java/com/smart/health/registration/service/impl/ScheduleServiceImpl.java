@@ -47,6 +47,9 @@ public class ScheduleServiceImpl implements ScheduleService {
     public void createSchedule(ScheduleCreateRequest request) {
         DoctorSchedule schedule = new DoctorSchedule();
         schedule.setDoctorId(request.getDoctorId());
+        if (request.getDepartmentId() != null) {
+            schedule.setDepartmentId(request.getDepartmentId());
+        }
         schedule.setDeptName(request.getDeptName());
         schedule.setWorkDate(request.getWorkDate());
         schedule.setShift(request.getShift());
@@ -63,15 +66,23 @@ public class ScheduleServiceImpl implements ScheduleService {
     }
 
     @Override
-    public List<ScheduleVO> getAvailableSchedules(String deptName, LocalDate workDate) {
-        List<DoctorSchedule> list = doctorScheduleMapper.selectAvailableList(deptName, workDate);
+    public List<ScheduleVO> getAvailableSchedules(String deptName, Long departmentId, LocalDate workDate) {
+        List<DoctorSchedule> list = doctorScheduleMapper.selectAvailableList(deptName, departmentId, workDate);
         return list.stream().map(this::toVO).collect(Collectors.toList());
     }
 
     @Override
-    public SeckillResponse seckill(SeckillRequest request) {
+    public ScheduleVO getScheduleDetail(Long scheduleId) {
+        DoctorSchedule schedule = doctorScheduleMapper.selectById(scheduleId);
+        if (schedule == null) {
+            throw new BusinessException("排班不存在");
+        }
+        return toVO(schedule);
+    }
+
+    @Override
+    public SeckillResponse seckill(SeckillRequest request, Long patientId) {
         Long scheduleId = request.getScheduleId();
-        Long patientId = request.getPatientId();
 
         // 1. 校验排班是否存在
         DoctorSchedule schedule = doctorScheduleMapper.selectById(scheduleId);
@@ -99,7 +110,6 @@ public class ScheduleServiceImpl implements ScheduleService {
             // 5. Redis 原子预扣库存
             Long remain = scheduleRedisConfig.decrementStock(scheduleId);
             if (remain == null || remain < 0) {
-                // 回滚库存
                 if (remain != null && remain < 0) {
                     scheduleRedisConfig.incrementStock(scheduleId);
                 }
@@ -127,7 +137,6 @@ public class ScheduleServiceImpl implements ScheduleService {
                 );
                 log.info("秒杀订单消息已发送，orderSn={}, scheduleId={}, patientId={}", orderSn, scheduleId, patientId);
             } catch (Exception e) {
-                // MQ 发送失败，回滚
                 log.error("MQ消息发送失败，回滚库存，orderSn={}", orderSn, e);
                 scheduleRedisConfig.incrementStock(scheduleId);
                 scheduleRedisConfig.removePatientFromSeckillSet(scheduleId, patientId);
@@ -152,6 +161,8 @@ public class ScheduleServiceImpl implements ScheduleService {
         vo.setId(schedule.getId());
         vo.setDoctorId(schedule.getDoctorId());
         vo.setDoctorName(schedule.getDoctorName());
+        vo.setDoctorAvatar(schedule.getDoctorAvatar());
+        vo.setDepartmentId(schedule.getDepartmentId());
         vo.setDeptName(schedule.getDeptName());
         vo.setWorkDate(schedule.getWorkDate());
         vo.setShift(schedule.getShift());

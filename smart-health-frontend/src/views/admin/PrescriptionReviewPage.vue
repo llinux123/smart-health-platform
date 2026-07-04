@@ -107,18 +107,20 @@ async function submitAudit() {
 </script>
 
 <style scoped>
-.page-loading {
-  display: flex;
-  justify-content: center;
-  padding: 40px;
+.prescription-review-page {
+  animation: fade-in 0.3s ease;
 }
 
 .review-list {
   padding: 16px;
 }
 
-.rx-card {
+.review-list .rx-card {
   margin-bottom: 12px;
+  background: var(--color-card);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card);
+  padding: 16px;
 }
 
 .rx-header {
@@ -130,8 +132,8 @@ async function submitAudit() {
 
 .rx-sn {
   font-size: 13px;
-  color: #666;
-  font-family: monospace;
+  color: var(--color-text-secondary);
+  font-family: var(--font-mono);
 }
 
 .rx-body {
@@ -139,9 +141,9 @@ async function submitAudit() {
 }
 
 .rx-diagnosis {
-  font-size: 14px;
-  font-weight: 500;
-  color: #333;
+  font-size: var(--font-size-body);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text);
   margin-bottom: 8px;
 }
 
@@ -153,16 +155,16 @@ async function submitAudit() {
 }
 
 .item-tag {
-  font-size: 12px;
-  color: #666;
-  background: #f5f5f5;
-  padding: 2px 8px;
-  border-radius: 4px;
+  font-size: var(--font-size-caption);
+  color: var(--color-text-secondary);
+  background: var(--color-bg);
+  padding: 3px 10px;
+  border-radius: var(--radius-full);
 }
 
 .rx-date {
-  font-size: 12px;
-  color: #999;
+  font-size: var(--font-size-caption);
+  color: var(--color-text-tertiary);
 }
 
 .rx-actions {
@@ -177,8 +179,8 @@ async function submitAudit() {
 
 .audit-rx-sn {
   font-size: 13px;
-  color: #666;
-  font-family: monospace;
+  color: var(--color-text-secondary);
+  font-family: var(--font-mono);
   margin-bottom: 12px;
 }
 </style>

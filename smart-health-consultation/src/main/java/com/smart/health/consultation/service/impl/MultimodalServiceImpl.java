@@ -2,26 +2,29 @@ package com.smart.health.consultation.service.impl;
 
 import com.smart.health.common.constant.CommonConstants;
 import com.smart.health.common.exception.BusinessException;
-import com.smart.health.common.security.SecurityUtils;
 import com.smart.health.consultation.config.FileUploadConfig;
 import com.smart.health.consultation.dto.MultimodalAnalyzeResponse;
-import com.smart.health.consultation.entity.ConsultationSession;
-import com.smart.health.consultation.mapper.ConsultationSessionMapper;
-import com.smart.health.consultation.service.MultimodalService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.ai.chat.ChatClient;
-import org.springframework.ai.chat.ChatResponse;
-import org.springframework.ai.chat.Generation;
-import org.springframework.ai.chat.messages.AssistantMessage;
+import org.springframework.ai.chat.messages.UserMessage;
+import org.springframework.ai.chat.model.ChatModel;
+import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.ai.chat.prompt.Prompt;
+import org.springframework.ai.content.Media;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.core.io.FileSystemResource;
+import org.springframework.core.io.Resource;
 import org.springframework.stereotype.Service;
+import org.springframework.util.MimeType;
+import org.springframework.util.MimeTypeUtils;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
 
 /**
@@ -30,96 +33,167 @@ import java.util.UUID;
 @Slf4j
 @Service
 @RequiredArgsConstructor
-public class MultimodalServiceImpl implements MultimodalService {
+public class MultimodalServiceImpl implements com.smart.health.consultation.service.MultimodalService {
 
     private final FileUploadConfig fileUploadConfig;
-    private final ConsultationSessionMapper consultationSessionMapper;
-    private final ChatClient chatClient;
+    @Qualifier("multimodalChatModel")
+    private final ChatModel chatModel;
 
     @Override
-    public MultimodalAnalyzeResponse analyze(MultipartFile file, String type, Long patientId) {
+    public MultimodalAnalyzeResponse analyze(List<MultipartFile> files, String type, Long patientId) {
         // 1. 参数校验
-        if (file == null || file.isEmpty()) {
+        if (files == null || files.isEmpty()) {
             throw new BusinessException("上传文件不能为空");
         }
         if (type == null || (!"IMAGE".equals(type) && !"REPORT".equals(type))) {
             throw new BusinessException("图片类型参数无效，应为 IMAGE 或 REPORT");
         }
 
-        // 2. 保存文件到本地，生成唯一文件名
-        String originalFilename = file.getOriginalFilename();
-        String extension = "";
-        if (originalFilename != null && originalFilename.contains(".")) {
-            extension = originalFilename.substring(originalFilename.lastIndexOf("."));
+        // 2. 保存所有文件，生成路径列表和URL列表
+        List<Path> savedPaths = new ArrayList<>();
+        List<String> fileUrls = new ArrayList<>();
+        StringBuilder fileDescBuilder = new StringBuilder();
+
+        for (MultipartFile file : files) {
+            Path targetPath = saveFile(file);
+            savedPaths.add(targetPath);
+            String fileUrl = "/api/v1/files/" + targetPath.getFileName().toString();
+            fileUrls.add(fileUrl);
+
+            String originalFilename = file.getOriginalFilename();
+            String ext = getExtension(originalFilename);
+            if (isImageFile(ext)) {
+                fileDescBuilder.append("- 图片文件: ").append(originalFilename).append("\n");
+            } else {
+                fileDescBuilder.append("- 文档文件: ").append(originalFilename).append("\n");
+            }
         }
-        String uniqueFilename = UUID.randomUUID().toString().replace("-", "") + extension;
-        String fileUrl;
-        try {
-            Path targetPath = Paths.get(fileUploadConfig.getUploadPath(), uniqueFilename);
-            Files.copy(file.getInputStream(), targetPath);
-            fileUrl = targetPath.toString();
-            log.info("文件上传成功: {}", fileUrl);
-        } catch (IOException e) {
-            log.error("文件上传失败", e);
-            throw new BusinessException("文件上传失败: " + e.getMessage());
-        }
 
-        // 3. 生成 draftId: "draft_" + timestamp + random 4 digits
-        String draftId = CommonConstants.DRAFT_ID_PREFIX
-                + System.currentTimeMillis()
-                + String.format("%04d", (int) (Math.random() * 10000));
+        // 3. 调用 AI 多模态分析（图片作为Media，文档在Prompt中描述）
+        String symptomDraft = callAiAnalysis(type, savedPaths, fileDescBuilder.toString());
 
-        // 4. 调用 Spring AI 进行多模态分析
-        // TODO: Spring AI 0.8.1 对多模态（图片）支持有限，当前仅支持文本 Prompt 调用。
-        //       待升级至 Spring AI 1.0+ 后，使用 UserMessage + Media(MediaType.IMAGE, resource)
-        //       实现真正的多模态图片分析调用。
-        String symptomDraft = callAiAnalysis(type, uniqueFilename);
+        // 4. 生成 draftId（不再创建session，交由AnalysisPage统一创建）
+        String draftId = generateDraftId();
 
-        // 5. 创建问诊会话记录
-        ConsultationSession session = new ConsultationSession();
-        session.setSessionSn(CommonConstants.SESSION_SN_PREFIX + UUID.randomUUID().toString().replace("-", ""));
-        session.setPatientId(patientId != null ? patientId : SecurityUtils.tryGetCurrentPatientId());
-        session.setDraftId(draftId);
-        session.setSymptomDraft(symptomDraft);
-        consultationSessionMapper.insert(session);
-        log.info("问诊会话创建成功, sessionSn={}, draftId={}", session.getSessionSn(), draftId);
-
-        // 6. 返回响应
+        // 5. 返回响应
         return MultimodalAnalyzeResponse.builder()
-                .fileUrl(fileUrl)
+                .fileUrls(fileUrls)
                 .draftId(draftId)
                 .symptomDraft(symptomDraft)
                 .build();
     }
 
     /**
-     * 调用 AI 分析图片（模拟实现）
-     * TODO: 升级 Spring AI 至 1.0+ 后替换为真实多模态调用
+     * 保存单个文件到本地
      */
-    private String callAiAnalysis(String type, String filename) {
+    private Path saveFile(MultipartFile file) {
+        if (file == null || file.isEmpty()) {
+            throw new BusinessException("上传文件不能为空");
+        }
+        String originalFilename = file.getOriginalFilename();
+        String extension = "";
+        if (originalFilename != null && originalFilename.contains(".")) {
+            extension = originalFilename.substring(originalFilename.lastIndexOf("."));
+        }
+        String uniqueFilename = UUID.randomUUID().toString().replace("-", "") + extension;
+        Path targetPath = Paths.get(fileUploadConfig.getUploadPath(), uniqueFilename);
+        try {
+            Files.copy(file.getInputStream(), targetPath);
+            log.info("文件上传成功: {} -> /api/v1/files/{}", targetPath, uniqueFilename);
+        } catch (IOException e) {
+            log.error("文件上传失败: {}", originalFilename, e);
+            throw new BusinessException("文件上传失败: " + e.getMessage());
+        }
+        return targetPath;
+    }
+
+    /**
+     * 判断是否为图片文件
+     */
+    private boolean isImageFile(String extension) {
+        if (extension == null) return false;
+        String ext = extension.toLowerCase();
+        return ext.equals(".jpg") || ext.equals(".jpeg") || ext.equals(".png")
+                || ext.equals(".gif") || ext.equals(".webp") || ext.equals(".bmp");
+    }
+
+    /**
+     * 获取文件扩展名
+     */
+    private String getExtension(String filename) {
+        if (filename == null || !filename.contains(".")) return "";
+        return filename.substring(filename.lastIndexOf(".")).toLowerCase();
+    }
+
+    /**
+     * 生成 draftId: "draft_" + timestamp + random 4 digits
+     */
+    private String generateDraftId() {
+        return CommonConstants.DRAFT_ID_PREFIX
+                + System.currentTimeMillis()
+                + String.format("%04d", (int) (Math.random() * 10000));
+    }
+
+    /**
+     * 调用 AI 多模态分析：将图片文件通过 UserMessage + Media 发送给视觉模型
+     */
+    private String callAiAnalysis(String type, List<Path> savedPaths, String fileDesc) {
         String typeLabel = "IMAGE".equals(type) ? "症状图片" : "检查报告";
         try {
-            // 通过 ChatClient 发送文本提示（图片传递在 0.8.1 中不支持）
-            String promptText = String.format(
-                    "你是一位专业的医学影像分析助手。请分析这张%s（文件名: %s），"
-                            + "描述观察到的症状特征，给出初步可能的疾病方向和建议的进一步检查项目。"
-                            + "请以结构化格式输出。",
-                    typeLabel, filename
-            );
-            Prompt prompt = new Prompt(promptText);
-            ChatResponse response = chatClient.call(prompt);
+            // 构建包含多张图片的多模态 UserMessage
+            var builder = UserMessage.builder();
+
+            // 构建文本提示
+            StringBuilder textBuilder = new StringBuilder();
+            textBuilder.append("你是一位专业的医学影像分析助手。请分析以下上传的")
+                    .append(typeLabel).append("，描述观察到的症状特征，")
+                    .append("给出初步可能的疾病方向和建议的进一步检查项目。")
+                    .append("请以 Markdown 结构化格式输出。\n\n");
+            textBuilder.append("【上传文件清单】\n").append(fileDesc);
+
+            builder.text(textBuilder.toString());
+
+            // 将所有图片文件作为 Media 加入
+            int imageCount = 0;
+            for (Path path : savedPaths) {
+                String ext = getExtension(path.getFileName().toString());
+                if (isImageFile(ext)) {
+                    Resource imageResource = new FileSystemResource(path);
+                    MimeType mimeType = determineMimeType(path);
+                    builder.media(new Media(mimeType, imageResource));
+                    imageCount++;
+                }
+            }
+            log.info("调用多模态 AI 分析, type={}, 图片{}张, 文件{}个",
+                    type, imageCount, savedPaths.size());
+
+            UserMessage userMessage = builder.build();
+            ChatResponse response = chatModel.call(new Prompt(userMessage));
             if (response != null && response.getResult() != null) {
-                AssistantMessage output = response.getResult().getOutput();
-                if (output != null && output.getContent() != null) {
-                    return output.getContent();
+                String text = response.getResult().getOutput().getText();
+                if (text != null && !text.isBlank()) {
+                    log.info("多模态 AI 分析成功, 响应长度={}", text.length());
+                    return text;
                 }
             }
         } catch (Exception e) {
-            log.warn("AI 调用失败，使用模拟响应: {}", e.getMessage());
+            log.warn("多模态 AI 调用失败，使用模拟响应: {}", e.getMessage());
         }
 
-        // 模拟响应（AI 调用失败或不可用时返回）
+        // 降级兜底（AI 调用失败或不可用时返回）
         return generateMockAnalysis(typeLabel);
+    }
+
+    /**
+     * 根据文件扩展名推断 MIME 类型
+     */
+    private MimeType determineMimeType(Path imagePath) {
+        String filename = imagePath.getFileName().toString().toLowerCase();
+        if (filename.endsWith(".png")) return MimeTypeUtils.IMAGE_PNG;
+        if (filename.endsWith(".gif")) return MimeTypeUtils.IMAGE_GIF;
+        if (filename.endsWith(".webp")) return MimeTypeUtils.parseMimeType("image/webp");
+        // 默认 JPEG（覆盖 .jpg/.jpeg/.bmp 等）
+        return MimeTypeUtils.IMAGE_JPEG;
     }
 
     /**

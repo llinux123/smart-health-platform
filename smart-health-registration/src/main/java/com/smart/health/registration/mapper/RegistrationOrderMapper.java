@@ -85,4 +85,7 @@ public interface RegistrationOrderMapper {
                                 @Param("targetStatus") int targetStatus,
                                 @Param("fromStatuses") List<Integer> fromStatuses,
                                 @Param("payTime") LocalDateTime payTime);
+
+    @Select("SELECT COUNT(*) FROM t_registration_order WHERE patient_id = #{patientId}")
+    int countByPatientId(@Param("patientId") Long patientId);
 }
