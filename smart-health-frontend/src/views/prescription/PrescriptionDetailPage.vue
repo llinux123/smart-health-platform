@@ -84,7 +84,7 @@ const totalPrice = computed(() => {
 
 onMounted(async () => {
   try {
-    rx.value = await getPrescription(rxId, userStore.patientId)
+    rx.value = await getPrescription(rxId, userStore.patientId || undefined)
   } catch (err) {
     // 错误已在拦截器中处理
   } finally {

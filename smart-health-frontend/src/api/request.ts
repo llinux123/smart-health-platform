@@ -11,6 +11,10 @@ interface ApiResponse<T = any> {
 
 // ============ ETag 缓存（用于问诊会话列表/详情） ============
 const etagCache = new Map<string, { etag: string; data: any }>()
+const MAX_ETAG_CACHE = 100
+
+// ============ 401 防重入锁 ============
+let isRedirecting401 = false
 
 /** 生成缓存 key：method + url + 序列化后的 params */
 function cacheKey(config: InternalAxiosRequestConfig): string {
@@ -66,6 +70,11 @@ request.interceptors.response.use(
         const etag = response.headers['etag'] as string | undefined
         if (etag) {
           const key = cacheKey(response.config)
+          // LRU 淘汰：超过上限时清除最早的缓存
+          if (etagCache.size >= MAX_ETAG_CACHE) {
+            const firstKey = etagCache.keys().next().value
+            if (firstKey) etagCache.delete(firstKey)
+          }
           etagCache.set(key, { etag, data: res.data })
         }
       }
@@ -78,9 +87,14 @@ request.interceptors.response.use(
     if (error.response) {
       const { status, data } = error.response
       if (status === 401 || (data && data.code === 401)) {
-        clearAuth()
-        showToast('登录已过期，请重新登录')
-        router.push({ path: '/login', query: { redirect: router.currentRoute.value.fullPath } })
+        if (!isRedirecting401) {
+          isRedirecting401 = true
+          clearAuth()
+          showToast('登录已过期，请重新登录')
+          router.push({ path: '/login', query: { redirect: router.currentRoute.value.fullPath } })
+          // 3秒后重置锁，允许用户重新登录后再次触发
+          setTimeout(() => { isRedirecting401 = false }, 3000)
+        }
       } else if (status !== 304) {
         showToast(data?.message || '网络请求失败')
       }

@@ -135,7 +135,7 @@ async function startAnalyze() {
   analyzing.value = true
   try {
     const typeValue = imageType.value === '检查报告' ? 'REPORT' : 'IMAGE'
-    const rawFiles = fileList.value.map(item => item.file || item)
+    const rawFiles = fileList.value.map(item => item.file).filter(Boolean)
     const result = await multimodalAnalyze(rawFiles, typeValue)
 
     // 使用 replace 导航到分析结果页，避免返回时看到旧结果
@@ -144,7 +144,7 @@ async function startAnalyze() {
       query: {
         draftId: result.draftId,
         symptomDraft: result.symptomDraft,
-        fileUrls: result.fileUrls ? result.fileUrls.join(',') : '',
+        fileUrls: Array.isArray(result.fileUrls) ? result.fileUrls.join(',') : String(result.fileUrls || ''),
         from: 'upload'
       }
     })

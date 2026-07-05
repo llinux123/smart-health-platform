@@ -199,12 +199,8 @@ async function onSubmit() {
       }))
     }
 
-    const params = {}
-    if (form.value.doctorId) {
-      params.doctorId = Number(form.value.doctorId)
-    }
-
-    await issuePrescription(payload, params.doctorId)
+    const doctorId = form.value.doctorId ? Number(form.value.doctorId) : undefined
+    await issuePrescription(payload, doctorId!)
     showSuccessToast('处方开具成功')
     setTimeout(() => router.back(), 1500)
   } catch (err) {

@@ -111,7 +111,9 @@ async function onSubmit() {
     setRememberMe(rememberMe.value)
     userStore.setLoginInfo(data)
     showToast('登录成功')
-    const redirect = (Array.isArray(route.query.redirect) ? route.query.redirect[0] : route.query.redirect) || '/home'
+    const rawRedirect = Array.isArray(route.query.redirect) ? route.query.redirect[0] : route.query.redirect
+    // 安全校验：仅允许站内相对路径，防止开放重定向攻击
+    const redirect = (rawRedirect && rawRedirect.startsWith('/') && !rawRedirect.startsWith('//')) ? rawRedirect : '/home'
     // 恢复原始路由的 query 参数
     let targetQuery = {}
     const rqRaw = route.query._rq

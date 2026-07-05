@@ -66,6 +66,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { showLoadingToast } from 'vant'
 import { createSession } from '@/api/consult'
 import { marked } from 'marked'
+import DOMPurify from 'dompurify'
 
 const route = useRoute()
 const router = useRouter()
@@ -77,7 +78,7 @@ const creating = ref(false)
 
 const renderedDraft = computed(() => {
   if (!symptomDraft.value) return ''
-  return marked(symptomDraft.value)
+  return DOMPurify.sanitize(marked(symptomDraft.value))
 })
 
 onMounted(() => {

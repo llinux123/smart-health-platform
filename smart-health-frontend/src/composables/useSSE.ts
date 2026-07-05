@@ -54,7 +54,11 @@ export function useSSE(): UseSSEReturn {
         throw new Error(`HTTP ${response.status}`)
       }
 
-      const reader = response.body!.getReader()
+      if (!response.body) {
+        throw new Error('浏览器不支持流式读取')
+      }
+
+      const reader = response.body.getReader()
       const decoder = new TextDecoder()
       let buffer = ''
 

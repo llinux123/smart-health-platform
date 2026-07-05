@@ -107,11 +107,10 @@ const pickerMode = ref('')
 const showPicker = ref(false)
 const searchKeyword = ref('')
 const searchResults = ref([])
-let selectedMedicine = null
 
-const inboundForm = ref({ medicineName: '', quantity: '', reason: '' })
-const outboundForm = ref({ medicineName: '', quantity: '', reason: '' })
-const reconcileForm = ref({ medicineName: '', actualStock: '', reason: '' })
+const inboundForm = ref({ medicineName: '', medicineId: null, quantity: '', reason: '' })
+const outboundForm = ref({ medicineName: '', medicineId: null, quantity: '', reason: '' })
+const reconcileForm = ref({ medicineName: '', medicineId: null, actualStock: '', reason: '' })
 const inboundLoading = ref(false)
 const outboundLoading = ref(false)
 const reconcileLoading = ref(false)
@@ -153,7 +152,6 @@ async function doPickerSearch() {
 }
 
 function selectPickerDrug(item) {
-  selectedMedicine = item
   const form = pickerMode.value === 'inbound' ? inboundForm
     : pickerMode.value === 'outbound' ? outboundForm
     : reconcileForm
@@ -170,9 +168,9 @@ async function doInbound() {
   }
   inboundLoading.value = true
   try {
-    await inbound({ pharmacyId: 1, medicineId: selectedMedicine?.id, quantity: Number(inboundForm.value.quantity), reason: inboundForm.value.reason })
+    await inbound({ pharmacyId: 1, medicineId: inboundForm.value.medicineId, quantity: Number(inboundForm.value.quantity), reason: inboundForm.value.reason })
     showSuccessToast('入库成功')
-    inboundForm.value = { medicineName: '', quantity: '', reason: '' }
+    inboundForm.value = { medicineName: '', medicineId: null, quantity: '', reason: '' }
     loadInventory()
   } catch { /* 静默 */ }
   finally { inboundLoading.value = false }
@@ -186,9 +184,9 @@ async function doOutbound() {
   }
   outboundLoading.value = true
   try {
-    await outbound({ pharmacyId: 1, medicineId: selectedMedicine?.id, quantity: Number(outboundForm.value.quantity), reason: outboundForm.value.reason })
+    await outbound({ pharmacyId: 1, medicineId: outboundForm.value.medicineId, quantity: Number(outboundForm.value.quantity), reason: outboundForm.value.reason })
     showSuccessToast('出库成功')
-    outboundForm.value = { medicineName: '', quantity: '', reason: '' }
+    outboundForm.value = { medicineName: '', medicineId: null, quantity: '', reason: '' }
     loadInventory()
   } catch { /* 静默 */ }
   finally { outboundLoading.value = false }
@@ -202,9 +200,9 @@ async function doReconcile() {
   }
   reconcileLoading.value = true
   try {
-    await reconcile({ pharmacyId: 1, medicineId: selectedMedicine?.id, actualStock: Number(reconcileForm.value.actualStock), reason: reconcileForm.value.reason })
+    await reconcile({ pharmacyId: 1, medicineId: reconcileForm.value.medicineId, actualStock: Number(reconcileForm.value.actualStock), reason: reconcileForm.value.reason })
     showSuccessToast('盘点成功')
-    reconcileForm.value = { medicineName: '', actualStock: '', reason: '' }
+    reconcileForm.value = { medicineName: '', medicineId: null, actualStock: '', reason: '' }
     loadInventory()
   } catch { /* 静默 */ }
   finally { reconcileLoading.value = false }

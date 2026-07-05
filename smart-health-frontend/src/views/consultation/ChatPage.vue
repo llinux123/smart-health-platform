@@ -3,6 +3,7 @@ import { ref, onMounted, nextTick, watch, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { showConfirmDialog, showLoadingToast, closeToast, showToast } from 'vant'
 import { marked } from 'marked'
+import DOMPurify from 'dompurify'
 import { useConsultationStore } from '@/stores/consultation'
 import { useSSE } from '@/composables/useSSE'
 import { getSessionDetail, type SessionInfo } from '@/api/consult'
@@ -84,7 +85,7 @@ function getFileName(url: string) {
 
 function renderMarkdown(text: string) {
   if (!text) return ''
-  return marked(text)
+  return DOMPurify.sanitize(marked(text))
 }
 
 // ============ 生命周期 ============
@@ -145,8 +146,9 @@ async function sendMessage() {
   // 发送 SSE 请求
   await send({ sessionId: sessionSn, message })
 
-  // 流式完成后，刷新轮次数据
+  // 流式完成后，刷新轮次数据（延迟确保后端持久化完成）
   if (streamContent.value) {
+    await new Promise(resolve => setTimeout(resolve, 500))
     await store.fetchTurns(sessionSn, 1)
     if (store.turns.length > 0) {
       currentTurnNumber.value = store.turns[store.turns.length - 1].turnNumber
