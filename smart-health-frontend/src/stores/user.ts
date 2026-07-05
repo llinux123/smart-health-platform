@@ -4,7 +4,7 @@ import {
   getToken, setToken, removeToken,
   getUserId, setUserId,
   getUsername, setUsername,
-  getRealName, setRealName,
+  getRealName, setRealName as setStoredRealName,
   getRole, setRole,
   getDoctorId, setDoctorId,
   clearAuth
@@ -61,6 +61,12 @@ export const useUserStore = defineStore('user', () => {
     setDoctorId(data.doctorId ?? null)
   }
 
+  /** 更新真实姓名（身份绑定后使用） */
+  function setRealName(name: string): void {
+    realName.value = name
+    setStoredRealName(name)
+  }
+
   function logout(): void {
     token.value = ''
     userId.value = null
@@ -87,6 +93,7 @@ export const useUserStore = defineStore('user', () => {
     isStaff,
     isProfileComplete,
     setLoginInfo,
+    setRealName,
     logout
   }
 })

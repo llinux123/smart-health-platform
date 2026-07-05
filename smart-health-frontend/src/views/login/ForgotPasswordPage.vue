@@ -113,7 +113,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed } from 'vue'
+import { ref, reactive, computed, onUnmounted } from 'vue'
 import { showToast } from 'vant'
 import { sendSmsCode, resetPassword } from '@/api/auth'
 
@@ -192,6 +192,10 @@ async function onResetPassword() {
     loading.value = false
   }
 }
+
+onUnmounted(() => {
+  if (timer) clearInterval(timer)
+})
 </script>
 
 <style scoped>

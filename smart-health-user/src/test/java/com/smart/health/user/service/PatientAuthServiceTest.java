@@ -326,4 +326,106 @@ class PatientAuthServiceTest {
         // Then
         verify(patientMapper).updatePasswordByPhone("13800138000", "$2a$10$encoded");
     }
+
+    @Test
+    @DisplayName("短信验证码登录 - 账号已禁用")
+    void smsLogin_disabledUser_throwsException() {
+        // Given
+        SmsLoginRequest request = new SmsLoginRequest();
+        request.setPhone("13800138000");
+        request.setCode("123456");
+
+        Patient patient = new Patient();
+        patient.setId(1L);
+        patient.setPhone("13800138000");
+        patient.setIsDeleted(1);
+
+        when(smsService.verifyCode("13800138000", "123456")).thenReturn(true);
+        when(patientMapper.findByPhone("13800138000")).thenReturn(patient);
+
+        // When & Then
+        assertThatThrownBy(() -> patientAuthService.smsLogin(request))
+                .isInstanceOf(BusinessException.class)
+                .extracting("code").isEqualTo(ResultCode.ACCOUNT_DISABLED.getCode());
+    }
+
+    @Test
+    @DisplayName("身份绑定 - 身份证已被其他用户绑定")
+    void bindIdentity_idCardExists_throwsException() {
+        // Given
+        PatientUserDetails userDetails = new PatientUserDetails(1L, "u_13800138000", "password", Collections.emptyList());
+        var authentication = new UsernamePasswordAuthenticationToken(userDetails, null, userDetails.getAuthorities());
+        SecurityContextHolder.getContext().setAuthentication(authentication);
+
+        Patient patient = new Patient();
+        patient.setId(1L);
+        patient.setUsername("u_13800138000");
+
+        BindIdentityRequest request = new BindIdentityRequest();
+        request.setRealName("张三");
+        request.setIdCard("110101199001011234");
+
+        when(patientMapper.findById(1L)).thenReturn(patient);
+        when(patientMapper.countByIdCard("110101199001011234")).thenReturn(1);
+
+        // When & Then
+        assertThatThrownBy(() -> patientAuthService.bindIdentity(request))
+                .isInstanceOf(BusinessException.class)
+                .extracting("code").isEqualTo(ResultCode.ID_CARD_EXISTS.getCode());
+    }
+
+    @Test
+    @DisplayName("身份绑定 - 用户不存在")
+    void bindIdentity_userNotFound_throwsException() {
+        // Given
+        PatientUserDetails userDetails = new PatientUserDetails(99L, "nonexistent", "password", Collections.emptyList());
+        var authentication = new UsernamePasswordAuthenticationToken(userDetails, null, userDetails.getAuthorities());
+        SecurityContextHolder.getContext().setAuthentication(authentication);
+
+        BindIdentityRequest request = new BindIdentityRequest();
+        request.setRealName("张三");
+        request.setIdCard("110101199001011234");
+
+        when(patientMapper.findById(99L)).thenReturn(null);
+
+        // When & Then
+        assertThatThrownBy(() -> patientAuthService.bindIdentity(request))
+                .isInstanceOf(BusinessException.class)
+                .extracting("code").isEqualTo(ResultCode.USER_NOT_FOUND.getCode());
+    }
+
+    @Test
+    @DisplayName("重置密码 - 验证码错误时拒绝重置")
+    void resetPassword_wrongCode_throwsException() {
+        // Given
+        ResetPasswordRequest request = new ResetPasswordRequest();
+        request.setPhone("13800138000");
+        request.setVerifyCode("000000");
+        request.setNewPassword("newPass123");
+
+        when(smsService.verifyCode("13800138000", "000000")).thenReturn(false);
+
+        // When & Then
+        assertThatThrownBy(() -> patientAuthService.resetPassword(request))
+                .isInstanceOf(BusinessException.class)
+                .extracting("code").isEqualTo(ResultCode.SMS_CODE_ERROR.getCode());
+    }
+
+    @Test
+    @DisplayName("重置密码 - 用户不存在")
+    void resetPassword_userNotFound_throwsException() {
+        // Given
+        ResetPasswordRequest request = new ResetPasswordRequest();
+        request.setPhone("13800138000");
+        request.setVerifyCode("123456");
+        request.setNewPassword("newPass123");
+
+        when(smsService.verifyCode("13800138000", "123456")).thenReturn(true);
+        when(patientMapper.findByPhone("13800138000")).thenReturn(null);
+
+        // When & Then
+        assertThatThrownBy(() -> patientAuthService.resetPassword(request))
+                .isInstanceOf(BusinessException.class)
+                .extracting("code").isEqualTo(ResultCode.USER_NOT_FOUND.getCode());
+    }
 }

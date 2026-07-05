@@ -205,7 +205,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive } from 'vue'
+import { ref, reactive, onUnmounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { showToast } from 'vant'
 import { login, smsLogin, sendSmsCode } from '@/api/auth'
@@ -335,6 +335,10 @@ function redirectToHome() {
 function showComingSoon() {
   showToast('功能即将上线')
 }
+
+onUnmounted(() => {
+  if (timer) clearInterval(timer)
+})
 </script>
 
 <style scoped>

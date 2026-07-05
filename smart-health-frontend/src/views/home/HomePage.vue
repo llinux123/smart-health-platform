@@ -268,7 +268,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, reactive, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { showConfirmDialog, showToast, showSuccessToast } from 'vant'
 import { useUserStore } from '@/stores/user'
@@ -323,8 +323,8 @@ async function onBindIdentity() {
     })
     showSuccessToast('身份绑定成功')
     showBindPopup.value = false
-    // 更新Store中的realName
-    userStore.realName = bindForm.realName
+    // 同步更新 Store 与持久化存储中的 realName
+    userStore.setRealName(bindForm.realName)
   } catch {
     // 错误已在拦截器中处理
   } finally {
