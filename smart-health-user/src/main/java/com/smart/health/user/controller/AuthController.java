@@ -73,10 +73,22 @@ public class AuthController {
         return Result.ok("登出成功", null);
     }
 
-    @Operation(summary = "身份绑定", description = "患者绑定实名信息（真实姓名、身份证、性别、邮箱）")
+    @Operation(summary = "身份绑定", description = "患者绑定实名信息（真实姓名、身份证、性别、邮箱、身份证照片、人脸识别）")
     @PostMapping("/bind-identity")
     public Result<ProfileResponse> bindIdentity(@Valid @RequestBody BindIdentityRequest request) {
         return Result.ok("身份绑定成功", patientAuthService.bindIdentity(request));
+    }
+
+    @Operation(summary = "更新用户名", description = "更新当前患者用户名")
+    @PostMapping("/update-username")
+    public Result<ProfileResponse> updateUsername(@RequestParam String username) {
+        return Result.ok("用户名更新成功", patientAuthService.updateUsername(username));
+    }
+
+    @Operation(summary = "更新头像", description = "更新当前患者头像")
+    @PostMapping("/update-avatar")
+    public Result<ProfileResponse> updateAvatar(@RequestParam String avatarUrl) {
+        return Result.ok("头像更新成功", patientAuthService.updateAvatar(avatarUrl));
     }
 
     @Operation(summary = "重置密码", description = "通过短信验证码重置密码")

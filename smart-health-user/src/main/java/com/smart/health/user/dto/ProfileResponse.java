@@ -5,6 +5,7 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 /**
@@ -37,6 +38,24 @@ public class ProfileResponse {
 
     /** 邮箱 */
     private String email;
+
+    /** 头像URL */
+    private String avatar;
+
+    /** 生日 */
+    private LocalDate birthday;
+
+    /** 实名认证状态 (0:未认证 1:审核中 2:已认证 3:已拒绝) */
+    private Integer idCardStatus;
+
+    /** 身份证正面URL */
+    private String idCardFrontUrl;
+
+    /** 身份证反面URL */
+    private String idCardBackUrl;
+
+    /** 人脸识别结果URL */
+    private String faceRecognitionUrl;
 
     /** 注册时间 */
     private LocalDateTime createTime;

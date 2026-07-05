@@ -11,8 +11,10 @@ import java.util.List;
 @Mapper
 public interface PatientMapper {
 
-    @Insert("INSERT INTO t_patient (username, password, real_name, id_card, phone, gender, email) " +
-            "VALUES (#{username}, #{password}, #{realName}, #{idCard}, #{phone}, #{gender}, #{email})")
+    @Insert("INSERT INTO t_patient (username, password, real_name, id_card, phone, gender, email, avatar, " +
+            "birthday, id_card_status, id_card_front_url, id_card_back_url, face_recognition_url) " +
+            "VALUES (#{username}, #{password}, #{realName}, #{idCard}, #{phone}, #{gender}, #{email}, #{avatar}, " +
+            "#{birthday}, #{idCardStatus}, #{idCardFrontUrl}, #{idCardBackUrl}, #{faceRecognitionUrl})")
     @Options(useGeneratedKeys = true, keyProperty = "id")
     int insert(Patient patient);
 
@@ -45,7 +47,13 @@ public interface PatientMapper {
             "  id_card = #{idCard},",
             "  phone = #{phone},",
             "  gender = #{gender},",
-            "  email = #{email}",
+            "  email = #{email},",
+            "  avatar = #{avatar},",
+            "  birthday = #{birthday},",
+            "  id_card_status = #{idCardStatus},",
+            "  id_card_front_url = #{idCardFrontUrl},",
+            "  id_card_back_url = #{idCardBackUrl},",
+            "  face_recognition_url = #{faceRecognitionUrl}",
             "WHERE id = #{id} AND is_deleted = 0",
             "</script>"})
     int update(Patient patient);

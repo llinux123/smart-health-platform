@@ -97,6 +97,19 @@ const routes: RouteRecordRaw[] = [
     component: () => import('@/views/prescription/PrescriptionListPage.vue'),
     meta: { requiresAuth: true }
   },
+  // 账号信息
+  {
+    path: '/my',
+    name: 'AccountInfo',
+    component: () => import('@/views/account/AccountInfoPage.vue'),
+    meta: { requiresAuth: true }
+  },
+  {
+    path: '/account/bind-identity',
+    name: 'BindIdentity',
+    component: () => import('@/views/account/BindIdentityPage.vue'),
+    meta: { requiresAuth: true, hideTab: true }
+  },
   {
     path: '/prescriptions/:id',
     name: 'PrescriptionDetail',

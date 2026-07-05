@@ -9,6 +9,7 @@ import {
   getDoctorId, setDoctorId,
   clearAuth
 } from '@/utils/storage'
+import type { ProfileData } from '@/api/auth'
 
 export interface LoginInfo {
   token: string
@@ -29,14 +30,15 @@ export const useUserStore = defineStore('user', () => {
   const realName = ref<string>(getRealName() || '')
   const role = ref<string>(getRole() || '')
   const doctorId = ref<number | null>(getDoctorId())
-
+  const profile = ref<Partial<ProfileData> | null>(null)
+  
   const isLoggedIn = computed<boolean>(() => !!token.value)
   const isPatient = computed(() => role.value === 'PATIENT')
   const isDoctor = computed(() => role.value === 'DOCTOR')
   const isPharmacist = computed(() => role.value === 'PHARMACIST')
   const isAdmin = computed(() => role.value === 'ADMIN')
   const isStaff = computed(() => ['DOCTOR', 'PHARMACIST', 'ADMIN'].includes(role.value))
-
+  
   /** 资料是否已完善（有真实姓名即视为已完善） */
   const isProfileComplete = computed(() => !!realName.value && realName.value.length > 0 && !realName.value.includes('****'))
 
@@ -67,6 +69,18 @@ export const useUserStore = defineStore('user', () => {
     setStoredRealName(name)
   }
 
+  function setProfile(data: ProfileData): void {
+    profile.value = data
+    if (data.username && data.username !== username.value) {
+      username.value = data.username
+      setUsername(data.username)
+    }
+    if (data.realName && data.realName !== realName.value) {
+      realName.value = data.realName
+      setStoredRealName(data.realName)
+    }
+  }
+
   function logout(): void {
     token.value = ''
     userId.value = null
@@ -84,6 +98,7 @@ export const useUserStore = defineStore('user', () => {
     realName,
     role,
     doctorId,
+    profile,
     patientId,
     isLoggedIn,
     isPatient,
@@ -94,6 +109,7 @@ export const useUserStore = defineStore('user', () => {
     isProfileComplete,
     setLoginInfo,
     setRealName,
+    setProfile,
     logout
   }
 })

@@ -22,4 +22,16 @@ public class BindIdentityRequest {
 
     @Email(message = "邮箱格式不正确")
     private String email;
+
+    /** 身份证正面URL */
+    private String idCardFrontUrl;
+
+    /** 身份证反面URL */
+    private String idCardBackUrl;
+
+    /** 人脸识别结果URL */
+    private String faceRecognitionUrl;
+
+    /** 测试环境跳过人脸识别和上传 */
+    private Boolean skipVerification;
 }

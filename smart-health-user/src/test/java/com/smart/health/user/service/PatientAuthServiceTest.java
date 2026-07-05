@@ -22,6 +22,7 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.Collections;
 
@@ -178,6 +179,8 @@ class PatientAuthServiceTest {
         assertThat(response.getId()).isEqualTo(1L);
         assertThat(response.getUsername()).isEqualTo("testuser");
         assertThat(response.getRealName()).isEqualTo("张三");
+        assertThat(response.getAvatar()).isNull();
+        assertThat(response.getIdCardStatus()).isNull();
         // 验证脱敏
         assertThat(response.getIdCard()).isNotEqualTo("110101199001011234");
         assertThat(response.getIdCard()).startsWith("110");
@@ -300,6 +303,92 @@ class PatientAuthServiceTest {
         assertThat(response).isNotNull();
         assertThat(response.getRealName()).isEqualTo("张三");
         assertThat(response.getEmail()).isEqualTo("zhangsan@example.com");
+        assertThat(response.getBirthday()).isEqualTo(LocalDate.of(1990, 1, 1));
+        assertThat(response.getIdCardStatus()).isEqualTo(1); // 审核中
+    }
+
+    @Test
+    @DisplayName("身份绑定 - 测试环境跳过验证直接通过")
+    void bindIdentity_skipVerification_directVerified() {
+        // Given
+        PatientUserDetails userDetails = new PatientUserDetails(1L, "u_13800138000", "password", Collections.emptyList());
+        var authentication = new UsernamePasswordAuthenticationToken(userDetails, null, userDetails.getAuthorities());
+        SecurityContextHolder.getContext().setAuthentication(authentication);
+
+        Patient patient = new Patient();
+        patient.setId(1L);
+        patient.setUsername("u_13800138000");
+        patient.setRealName("138****8000");
+        patient.setPhone("13800138000");
+
+        BindIdentityRequest request = new BindIdentityRequest();
+        request.setRealName("张三");
+        request.setIdCard("110101199001011234");
+        request.setGender(1);
+        request.setSkipVerification(true);
+
+        when(patientMapper.findById(1L)).thenReturn(patient);
+        when(patientMapper.countByIdCard("110101199001011234")).thenReturn(0);
+        when(patientMapper.update(any())).thenReturn(1);
+
+        // When
+        ProfileResponse response = patientAuthService.bindIdentity(request);
+
+        // Then
+        assertThat(response).isNotNull();
+        assertThat(response.getIdCardStatus()).isEqualTo(2); // 已认证
+        assertThat(response.getBirthday()).isEqualTo(LocalDate.of(1990, 1, 1));
+    }
+
+    @Test
+    @DisplayName("更新用户名 - 成功")
+    void updateUsername_success() {
+        // Given
+        PatientUserDetails userDetails = new PatientUserDetails(1L, "olduser", "password", Collections.emptyList());
+        var authentication = new UsernamePasswordAuthenticationToken(userDetails, null, userDetails.getAuthorities());
+        SecurityContextHolder.getContext().setAuthentication(authentication);
+
+        Patient patient = new Patient();
+        patient.setId(1L);
+        patient.setUsername("olduser");
+        patient.setRealName("张三");
+        patient.setPhone("13800138000");
+
+        when(patientMapper.findById(1L)).thenReturn(patient);
+        when(patientMapper.countByUsername("newuser")).thenReturn(0);
+        when(patientMapper.update(any())).thenReturn(1);
+
+        // When
+        ProfileResponse response = patientAuthService.updateUsername("newuser");
+
+        // Then
+        assertThat(response).isNotNull();
+        assertThat(response.getUsername()).isEqualTo("newuser");
+    }
+
+    @Test
+    @DisplayName("更新头像 - 成功")
+    void updateAvatar_success() {
+        // Given
+        PatientUserDetails userDetails = new PatientUserDetails(1L, "testuser", "password", Collections.emptyList());
+        var authentication = new UsernamePasswordAuthenticationToken(userDetails, null, userDetails.getAuthorities());
+        SecurityContextHolder.getContext().setAuthentication(authentication);
+
+        Patient patient = new Patient();
+        patient.setId(1L);
+        patient.setUsername("testuser");
+        patient.setRealName("张三");
+        patient.setPhone("13800138000");
+
+        when(patientMapper.findById(1L)).thenReturn(patient);
+        when(patientMapper.update(any())).thenReturn(1);
+
+        // When
+        ProfileResponse response = patientAuthService.updateAvatar("https://example.com/avatar.png");
+
+        // Then
+        assertThat(response).isNotNull();
+        assertThat(response.getAvatar()).isEqualTo("https://example.com/avatar.png");
     }
 
     @Test

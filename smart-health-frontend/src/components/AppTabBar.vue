@@ -45,6 +45,15 @@
         </span>
         处方
       </van-tabbar-item>
+      <van-tabbar-item to="/my">
+        <span class="tab-icon-wrapper">
+          <svg class="tab-icon" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+            <circle cx="12" cy="7" r="4" />
+          </svg>
+        </span>
+        我的
+      </van-tabbar-item>
     </template>
     <!-- 医生导航 -->
     <template v-else-if="userStore.isDoctor">
@@ -104,6 +113,7 @@ const tabMap = {
   '/consultation': 1,
   '/registration/orders': 2,
   '/prescriptions': 3,
+  '/my': 4,
   '/admin/prescription/issue': 1,
   '/admin/prescription/review': 1,
   '/admin/schedule': 1

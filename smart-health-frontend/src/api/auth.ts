@@ -30,6 +30,27 @@ export interface BindIdentityData {
   idCard: string
   gender: number
   email?: string
+  idCardFrontUrl?: string
+  idCardBackUrl?: string
+  faceRecognitionUrl?: string
+  skipVerification?: boolean
+}
+
+export interface ProfileData {
+  id: number
+  username: string
+  realName: string
+  idCard: string
+  phone: string
+  gender: number
+  email: string
+  avatar: string
+  birthday: string
+  idCardStatus: number
+  idCardFrontUrl: string
+  idCardBackUrl: string
+  faceRecognitionUrl: string
+  createTime: string
 }
 
 export interface ResetPasswordData {
@@ -63,7 +84,15 @@ export function resetPassword(data: ResetPasswordData) {
 }
 
 export function getProfile() {
-  return request.get('/api/v1/auth/profile')
+  return request.get<ProfileData>('/api/v1/auth/profile')
+}
+
+export function updateUsername(username: string) {
+  return request.post<ProfileData>('/api/v1/auth/update-username', null, { params: { username } })
+}
+
+export function updateAvatar(avatarUrl: string) {
+  return request.post<ProfileData>('/api/v1/auth/update-avatar', null, { params: { avatarUrl } })
 }
 
 export function logout() {

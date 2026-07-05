@@ -13,6 +13,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.security.SecureRandom;
+import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeParseException;
 
 /**
  * 患者认证服务
@@ -106,8 +109,14 @@ public class PatientAuthService {
                 .idCard(maskIdCard(patient.getIdCard()))
                 .phone(maskPhone(patient.getPhone()))
                 .gender(patient.getGender())
-                .createTime(patient.getCreateTime())
                 .email(patient.getEmail())
+                .avatar(patient.getAvatar())
+                .birthday(patient.getBirthday())
+                .idCardStatus(patient.getIdCardStatus())
+                .idCardFrontUrl(patient.getIdCardFrontUrl())
+                .idCardBackUrl(patient.getIdCardBackUrl())
+                .faceRecognitionUrl(patient.getFaceRecognitionUrl())
+                .createTime(patient.getCreateTime())
                 .build();
     }
 
@@ -200,6 +209,12 @@ public class PatientAuthService {
         patient.setIdCard(request.getIdCard());
         patient.setGender(request.getGender() != null ? request.getGender() : patient.getGender());
         patient.setEmail(request.getEmail());
+        patient.setBirthday(parseBirthdayFromIdCard(request.getIdCard()));
+        patient.setIdCardFrontUrl(request.getIdCardFrontUrl());
+        patient.setIdCardBackUrl(request.getIdCardBackUrl());
+        patient.setFaceRecognitionUrl(request.getFaceRecognitionUrl());
+        // 测试环境跳过审核时直接设为已认证，否则进入审核中
+        patient.setIdCardStatus(Boolean.TRUE.equals(request.getSkipVerification()) ? 2 : 1);
         patientMapper.update(patient);
 
         return ProfileResponse.builder()
@@ -210,8 +225,62 @@ public class PatientAuthService {
                 .phone(maskPhone(patient.getPhone()))
                 .gender(patient.getGender())
                 .email(patient.getEmail())
+                .avatar(patient.getAvatar())
+                .birthday(patient.getBirthday())
+                .idCardStatus(patient.getIdCardStatus())
+                .idCardFrontUrl(patient.getIdCardFrontUrl())
+                .idCardBackUrl(patient.getIdCardBackUrl())
+                .faceRecognitionUrl(patient.getFaceRecognitionUrl())
                 .createTime(patient.getCreateTime())
                 .build();
+    }
+
+    /**
+     * 更新用户名
+     */
+    @Transactional
+    public ProfileResponse updateUsername(String username) {
+        Long patientId = SecurityUtils.getCurrentPatientId();
+        Patient patient = patientMapper.findById(patientId);
+        if (patient == null) {
+            throw new BusinessException(ResultCode.USER_NOT_FOUND);
+        }
+        if (!patient.getUsername().equals(username) && patientMapper.countByUsername(username) > 0) {
+            throw new BusinessException(ResultCode.USER_EXISTS);
+        }
+        patient.setUsername(username);
+        patientMapper.update(patient);
+        return getProfile();
+    }
+
+    /**
+     * 更新头像
+     */
+    @Transactional
+    public ProfileResponse updateAvatar(String avatarUrl) {
+        Long patientId = SecurityUtils.getCurrentPatientId();
+        Patient patient = patientMapper.findById(patientId);
+        if (patient == null) {
+            throw new BusinessException(ResultCode.USER_NOT_FOUND);
+        }
+        patient.setAvatar(avatarUrl);
+        patientMapper.update(patient);
+        return getProfile();
+    }
+
+    /**
+     * 从身份证号解析生日
+     */
+    private LocalDate parseBirthdayFromIdCard(String idCard) {
+        if (idCard == null || idCard.length() < 14) {
+            return null;
+        }
+        try {
+            String birthdayStr = idCard.substring(6, 14);
+            return LocalDate.parse(birthdayStr, DateTimeFormatter.ofPattern("yyyyMMdd"));
+        } catch (DateTimeParseException | IndexOutOfBoundsException e) {
+            return null;
+        }
     }
 
     /**
