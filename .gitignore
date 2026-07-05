@@ -1,0 +1,83 @@
+# === IDENTIFY YOUR ENVIRONMENT ===
+.env
+.env.local
+.env.*.local
+.env.production
+.env.development
+
+# === SECURITY: NEVER COMMIT THESE ===
+*.pem
+*.key
+*.crt
+*.cer
+*.p12
+*.pfx
+*.jks
+*.keystore
+**/secrets/**
+**/credentials/**
+**/service-account*.json
+
+# === JAVA / MAVEN ===
+target/
+!.mvn/wrapper/maven-wrapper.jar
+*.class
+*.jar
+*.war
+*.ear
+*.log
+hs_err_pid*
+replay_pid*
+
+# === NODE / VUE / VITE ===
+node_modules/
+dist/
+.vite/
+*.tsbuildinfo
+*.local
+
+# === INTELLIJ IDEA ===
+.idea/
+*.iml
+*.ipr
+*.iws
+out/
+
+# === VS CODE ===
+.vscode/
+*.code-workspace
+
+# === OS FILES ===
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# === DOCKER ===
+docker-compose.override.yml
+
+# === TEST REPORTS ===
+test-results/
+reports/
+allure-results/
+allure-report/
+
+# === QODER / TOOLS ===
+.qoder/
+.qoderignore
+
+# === LOGS ===
+*.log
+logs/
+
+# === TEMP FILES ===
+*.swp
+*.swo
+*~
+*.bak
+*.tmp
