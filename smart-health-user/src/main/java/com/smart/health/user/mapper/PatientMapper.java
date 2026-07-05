@@ -11,8 +11,8 @@ import java.util.List;
 @Mapper
 public interface PatientMapper {
 
-    @Insert("INSERT INTO t_patient (username, password, real_name, id_card, phone, gender) " +
-            "VALUES (#{username}, #{password}, #{realName}, #{idCard}, #{phone}, #{gender})")
+    @Insert("INSERT INTO t_patient (username, password, real_name, id_card, phone, gender, email) " +
+            "VALUES (#{username}, #{password}, #{realName}, #{idCard}, #{phone}, #{gender}, #{email})")
     @Options(useGeneratedKeys = true, keyProperty = "id")
     int insert(Patient patient);
 
@@ -42,11 +42,16 @@ public interface PatientMapper {
     @Update({"<script>",
             "UPDATE t_patient SET",
             "  real_name = #{realName},",
+            "  id_card = #{idCard},",
             "  phone = #{phone},",
-            "  gender = #{gender}",
+            "  gender = #{gender},",
+            "  email = #{email}",
             "WHERE id = #{id} AND is_deleted = 0",
             "</script>"})
     int update(Patient patient);
+
+    @Update("UPDATE t_patient SET password = #{password} WHERE phone = #{phone} AND is_deleted = 0")
+    int updatePasswordByPhone(@Param("phone") String phone, @Param("password") String password);
 
     @Update("UPDATE t_patient SET is_deleted = 1, deleted_at = NOW() WHERE id = #{id} AND is_deleted = 0")
     int softDelete(@Param("id") Long id);

@@ -5,6 +5,8 @@ import com.smart.health.common.security.PatientUserDetails;
 import com.smart.health.registration.dto.OrderVO;
 import com.smart.health.registration.dto.SeckillRequest;
 import com.smart.health.registration.dto.SeckillResponse;
+import com.smart.health.registration.mapper.DepartmentMapper;
+import com.smart.health.registration.mapper.DoctorDepartmentMapper;
 import com.smart.health.registration.mapper.DoctorMapper;
 import com.smart.health.registration.mapper.DoctorScheduleMapper;
 import com.smart.health.registration.mapper.RegistrationOrderMapper;
@@ -55,6 +57,12 @@ class ScheduleControllerTest {
 
     @MockBean
     private RegistrationOrderMapper registrationOrderMapper;
+
+    @MockBean
+    private DepartmentMapper departmentMapper;
+
+    @MockBean
+    private DoctorDepartmentMapper doctorDepartmentMapper;
 
     @Autowired
     private ObjectMapper objectMapper;

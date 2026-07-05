@@ -35,6 +35,9 @@ public class ProfileResponse {
     /** 性别 */
     private Integer gender;
 
+    /** 邮箱 */
+    private String email;
+
     /** 注册时间 */
     private LocalDateTime createTime;
 }

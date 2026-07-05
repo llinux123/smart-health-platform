@@ -4,8 +4,12 @@ import com.smart.health.common.exception.BusinessException;
 import com.smart.health.common.result.ResultCode;
 import com.smart.health.common.security.PatientUserDetails;
 import com.smart.health.user.config.JwtTokenProvider;
+import com.smart.health.user.dto.BindIdentityRequest;
+import com.smart.health.user.dto.LoginResponse;
 import com.smart.health.user.dto.ProfileResponse;
 import com.smart.health.user.dto.RegisterRequest;
+import com.smart.health.user.dto.ResetPasswordRequest;
+import com.smart.health.user.dto.SmsLoginRequest;
 import com.smart.health.user.entity.Patient;
 import com.smart.health.user.mapper.PatientMapper;
 import org.junit.jupiter.api.BeforeEach;
@@ -42,12 +46,15 @@ class PatientAuthServiceTest {
     @Mock
     private JwtTokenProvider jwtTokenProvider;
 
+    @Mock
+    private SmsService smsService;
+
     private PatientAuthService patientAuthService;
 
     @BeforeEach
     void setUp() {
         patientAuthService = new PatientAuthService(
-                patientMapper, passwordEncoder, jwtTokenProvider
+                patientMapper, passwordEncoder, jwtTokenProvider, smsService
         );
         // 清理 SecurityContext
         SecurityContextHolder.clearContext();
@@ -192,5 +199,131 @@ class PatientAuthServiceTest {
         assertThatThrownBy(() -> patientAuthService.getProfile())
                 .isInstanceOf(BusinessException.class)
                 .extracting("code").isEqualTo(ResultCode.USER_NOT_FOUND.getCode());
+    }
+
+    @Test
+    @DisplayName("短信验证码登录 - 已注册患者直接登录")
+    void smsLogin_existingUser_success() {
+        // Given
+        SmsLoginRequest request = new SmsLoginRequest();
+        request.setPhone("13800138000");
+        request.setCode("123456");
+
+        Patient patient = new Patient();
+        patient.setId(1L);
+        patient.setUsername("u_13800138000");
+        patient.setPhone("13800138000");
+        patient.setRealName("张三");
+
+        when(smsService.verifyCode("13800138000", "123456")).thenReturn(true);
+        when(patientMapper.findByPhone("13800138000")).thenReturn(patient);
+        when(jwtTokenProvider.generatePatientToken(1L, "u_13800138000")).thenReturn("token-123");
+
+        // When
+        LoginResponse response = patientAuthService.smsLogin(request);
+
+        // Then
+        assertThat(response).isNotNull();
+        assertThat(response.getToken()).isEqualTo("token-123");
+        assertThat(response.getIsNewUser()).isFalse();
+        assertThat(response.getRandomPassword()).isNull();
+    }
+
+    @Test
+    @DisplayName("短信验证码登录 - 未注册患者自动创建账号并返回初始密码")
+    void smsLogin_newUser_autoRegisterAndReturnRandomPassword() {
+        // Given
+        SmsLoginRequest request = new SmsLoginRequest();
+        request.setPhone("13900139000");
+        request.setCode("654321");
+
+        when(smsService.verifyCode("13900139000", "654321")).thenReturn(true);
+        when(patientMapper.findByPhone("13900139000")).thenReturn(null);
+        when(passwordEncoder.encode(anyString())).thenReturn("$2a$10$encoded");
+        when(patientMapper.insert(any())).thenReturn(1);
+        when(jwtTokenProvider.generatePatientToken(any(), any())).thenReturn("token-new");
+
+        // When
+        LoginResponse response = patientAuthService.smsLogin(request);
+
+        // Then
+        assertThat(response).isNotNull();
+        assertThat(response.getIsNewUser()).isTrue();
+        assertThat(response.getRandomPassword()).isNotNull().hasSize(12);
+        verify(patientMapper).insert(any());
+    }
+
+    @Test
+    @DisplayName("短信验证码登录 - 验证码错误时拒绝登录")
+    void smsLogin_wrongCode_throwsException() {
+        // Given
+        SmsLoginRequest request = new SmsLoginRequest();
+        request.setPhone("13800138000");
+        request.setCode("000000");
+
+        when(smsService.verifyCode("13800138000", "000000")).thenReturn(false);
+
+        // When & Then
+        assertThatThrownBy(() -> patientAuthService.smsLogin(request))
+                .isInstanceOf(BusinessException.class)
+                .extracting("code").isEqualTo(ResultCode.SMS_CODE_ERROR.getCode());
+    }
+
+    @Test
+    @DisplayName("身份绑定 - 更新实名信息成功")
+    void bindIdentity_success() {
+        // Given
+        PatientUserDetails userDetails = new PatientUserDetails(1L, "u_13800138000", "password", Collections.emptyList());
+        var authentication = new UsernamePasswordAuthenticationToken(userDetails, null, userDetails.getAuthorities());
+        SecurityContextHolder.getContext().setAuthentication(authentication);
+
+        Patient patient = new Patient();
+        patient.setId(1L);
+        patient.setUsername("u_13800138000");
+        patient.setRealName("138****8000");
+        patient.setPhone("13800138000");
+
+        BindIdentityRequest request = new BindIdentityRequest();
+        request.setRealName("张三");
+        request.setIdCard("110101199001011234");
+        request.setGender(1);
+        request.setEmail("zhangsan@example.com");
+
+        when(patientMapper.findById(1L)).thenReturn(patient);
+        when(patientMapper.countByIdCard("110101199001011234")).thenReturn(0);
+        when(patientMapper.update(any())).thenReturn(1);
+
+        // When
+        ProfileResponse response = patientAuthService.bindIdentity(request);
+
+        // Then
+        assertThat(response).isNotNull();
+        assertThat(response.getRealName()).isEqualTo("张三");
+        assertThat(response.getEmail()).isEqualTo("zhangsan@example.com");
+    }
+
+    @Test
+    @DisplayName("重置密码 - 验证码通过后更新密码")
+    void resetPassword_success() {
+        // Given
+        ResetPasswordRequest request = new ResetPasswordRequest();
+        request.setPhone("13800138000");
+        request.setVerifyCode("123456");
+        request.setNewPassword("newPass123");
+
+        Patient patient = new Patient();
+        patient.setId(1L);
+        patient.setPhone("13800138000");
+
+        when(smsService.verifyCode("13800138000", "123456")).thenReturn(true);
+        when(patientMapper.findByPhone("13800138000")).thenReturn(patient);
+        when(passwordEncoder.encode("newPass123")).thenReturn("$2a$10$encoded");
+        when(patientMapper.updatePasswordByPhone("13800138000", "$2a$10$encoded")).thenReturn(1);
+
+        // When
+        patientAuthService.resetPassword(request);
+
+        // Then
+        verify(patientMapper).updatePasswordByPhone("13800138000", "$2a$10$encoded");
     }
 }

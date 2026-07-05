@@ -13,9 +13,9 @@ const routes: RouteRecordRaw[] = [
     meta: { requiresAuth: false, hideTab: true }
   },
   {
-    path: '/register',
-    name: 'Register',
-    component: () => import('@/views/login/RegisterPage.vue'),
+    path: '/forgot-password',
+    name: 'ForgotPassword',
+    component: () => import('@/views/login/ForgotPasswordPage.vue'),
     meta: { requiresAuth: false, hideTab: true }
   },
   {
@@ -115,13 +115,13 @@ const routes: RouteRecordRaw[] = [
     path: '/admin/prescription/review',
     name: 'AdminPrescriptionReview',
     component: () => import('@/views/admin/PrescriptionReviewPage.vue'),
-    meta: { requiresAuth: true, hideTab: true, roles: ['ADMIN', 'PHARMACIST'] }
+    meta: { requiresAuth: true, hideTab: true, roles: ['PHARMACIST'] }
   },
   {
     path: '/admin/prescription/issue',
     name: 'AdminPrescriptionIssue',
     component: () => import('@/views/admin/IssuePrescriptionPage.vue'),
-    meta: { requiresAuth: true, hideTab: true, roles: ['ADMIN', 'DOCTOR'] }
+    meta: { requiresAuth: true, hideTab: true, roles: ['DOCTOR'] }
   },
   {
     path: '/admin/inventory',
@@ -138,12 +138,12 @@ const router = createRouter({
 })
 
 // 导航守卫
-const whiteList = ['/login', '/register']
+const whiteList = ['/login', '/forgot-password']
 
 router.beforeEach((to, from, next) => {
   const token = getToken()
   if (whiteList.includes(to.path) || !to.meta.requiresAuth) {
-    if (token && (to.path === '/login' || to.path === '/register')) {
+    if (token && (to.path === '/login' || to.path === '/forgot-password')) {
       next('/home')
     } else {
       next()

@@ -28,4 +28,14 @@ public class LoginResponse {
      * 兼容旧版患者登录（患者角色有值）
      */
     private Long patientId;
+
+    /**
+     * 是否新注册用户（短信验证码登录首次创建账号）
+     */
+    private Boolean isNewUser;
+
+    /**
+     * 随机生成的初始密码（仅新注册用户返回，建议用户修改）
+     */
+    private String randomPassword;
 }

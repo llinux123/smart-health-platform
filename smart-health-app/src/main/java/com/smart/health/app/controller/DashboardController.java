@@ -1,9 +1,9 @@
-package com.smart.health.user.controller;
+package com.smart.health.app.controller;
 
+import com.smart.health.app.service.DashboardService;
+import com.smart.health.app.service.DashboardService.PatientStats;
 import com.smart.health.common.result.Result;
 import com.smart.health.common.security.SecurityUtils;
-import com.smart.health.user.service.DashboardService;
-import com.smart.health.user.service.DashboardService.PatientStats;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
@@ -12,7 +12,10 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
- * 首页统计控制器
+ * 首页统计控制器（聚合模式）
+ * <p>
+ * 直接注入各子模块的 Service 进行并行 COUNT 查询，
+ * 替代原先跨服务 HTTP 调用的方案。
  */
 @Tag(name = "首页统计", description = "患者首页聚合统计数据")
 @RestController

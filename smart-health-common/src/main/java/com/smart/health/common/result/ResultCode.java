@@ -31,6 +31,9 @@ public enum ResultCode {
     INVALID_LOGIN_TYPE(1007, "无效的登录类型，仅支持 PATIENT / STAFF"),
     STAFF_NOT_FOUND(1008, "员工不存在"),
     ROLE_NOT_MODIFIABLE(1009, "角色创建后不可修改"),
+    SMS_CODE_ERROR(1010, "验证码错误"),
+    SMS_CODE_EXPIRED(1011, "验证码已过期"),
+    SMS_SEND_FAIL(1012, "验证码发送失败"),
 
     // 挂号相关 2001-2999
     SCHEDULE_NOT_FOUND(2001, "排班信息不存在"),

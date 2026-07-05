@@ -86,25 +86,6 @@
         </span>
         排班
       </van-tabbar-item>
-      <van-tabbar-item to="/admin/prescription/review">
-        <span class="tab-icon-wrapper">
-          <svg class="tab-icon" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M14 2H6C5.46957 2 4.96086 2.21071 4.58579 2.58579C4.21071 2.96086 4 3.46957 4 4V20C4 20.5304 4.21071 21.0391 4.58579 21.4142C4.96086 21.7893 5.46957 22 6 22H18C18.5304 22 19.0391 21.7893 19.4142 21.4142C19.7893 21.0391 20 20.5304 20 20V8L14 2Z" />
-            <polyline points="14 2 14 8 20 8" />
-          </svg>
-        </span>
-        审核
-      </van-tabbar-item>
-      <van-tabbar-item to="/admin/prescription/issue">
-        <span class="tab-icon-wrapper">
-          <svg class="tab-icon" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M12 20H9C8.46957 20 7.96086 19.7893 7.58579 19.4142C7.21071 19.0391 7 18.5304 7 18V6C7 5.46957 7.21071 4.96086 7.58579 4.58579C7.96086 4.21071 8.46957 4 9 4H12" />
-            <path d="M16 2L20 6L16 10" />
-            <line x1="10" y1="12" x2="20" y2="12" />
-          </svg>
-        </span>
-        开方
-      </van-tabbar-item>
     </template>
   </van-tabbar>
 </template>

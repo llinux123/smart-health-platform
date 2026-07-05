@@ -15,6 +15,7 @@ CREATE TABLE IF NOT EXISTS `t_patient` (
   `id_card` varchar(18) NOT NULL COMMENT '身份证号',
   `phone` varchar(11) NOT NULL COMMENT '手机号',
   `gender` tinyint(1) DEFAULT '0' COMMENT '性别 (0:未知 1:男 2:女)',
+  `email` varchar(100) DEFAULT NULL COMMENT '邮箱（密码找回）',
   `is_deleted` tinyint(1) NOT NULL DEFAULT 0 COMMENT '是否已软删除',
   `deleted_at` datetime DEFAULT NULL COMMENT '软删除时间',
   `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '注册时间',

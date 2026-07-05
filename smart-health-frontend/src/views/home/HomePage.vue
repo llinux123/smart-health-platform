@@ -10,8 +10,11 @@
       </div>
       <div class="hero-body">
         <div class="hero-top">
-          <div class="hero-avatar">
+          <div class="hero-avatar hero-avatar--clickable" @click.stop="toggleAvatarPanel">
             <van-image round width="48" height="48" :src="'https://fastly.jsdelivr.net/npm/@vant/assets/cat.jpeg'" />
+            <svg class="hero-avatar-arrow" :class="{ 'hero-avatar-arrow--open': showAvatarPanel }" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="6 9 12 15 18 9" />
+            </svg>
           </div>
           <div class="hero-text">
             <h1 class="hero-greeting">你好，{{ userStore.realName || '用户' }}</h1>
@@ -35,7 +38,99 @@
           </div>
         </div>
       </div>
+
+      <!-- 用户浮动面板（B站风格） -->
+      <transition name="panel">
+        <div v-if="showAvatarPanel" class="avatar-panel">
+          <div class="avatar-panel-arrow"></div>
+          <div class="avatar-panel-body">
+            <div class="avatar-panel-user">
+              <van-image round width="42" height="42" :src="'https://fastly.jsdelivr.net/npm/@vant/assets/cat.jpeg'" />
+              <div class="avatar-panel-user-info">
+                <span class="avatar-panel-name">{{ userStore.realName || '用户' }}</span>
+                <span class="avatar-panel-role">{{ roleLabel }}</span>
+              </div>
+            </div>
+            <div class="avatar-panel-divider"></div>
+            <div class="avatar-panel-actions">
+              <div v-if="userStore.isPatient && userStore.isProfileComplete" class="avatar-panel-action">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--color-primary)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
+                  <polyline points="22 4 12 14.01 9 11.01" />
+                </svg>
+                <span>已认证</span>
+              </div>
+              <div v-if="userStore.isPatient && !userStore.isProfileComplete" class="avatar-panel-action" @click="openBindIdentity">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M20 14.66V20a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h5.34" />
+                  <polygon points="18 2 22 6 12 16 8 16 8 12 18 2" />
+                </svg>
+                <span>身份绑定</span>
+              </div>
+              <div class="avatar-panel-action avatar-panel-action--logout" @click="handleLogout">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M9 21H5C4.46957 21 3.96086 20.7893 3.58579 20.4142C3.21071 20.0391 3 19.5304 3 19V5C3 4.46957 3.21071 3.96086 3.58579 3.58579C3.96086 3.21071 4.46957 3 5 3H9" />
+                  <polyline points="16 17 21 12 16 7" />
+                  <line x1="21" y1="12" x2="9" y2="12" />
+                </svg>
+                <span>退出登录</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </transition>
     </div>
+
+    <!-- 面板遮罩 -->
+    <transition name="fade">
+      <div v-if="showAvatarPanel" class="avatar-panel-backdrop" @click="showAvatarPanel = false"></div>
+    </transition>
+
+    <!-- 身份绑定弹窗 -->
+    <van-popup v-model:show="showBindPopup" position="bottom" round :style="{ padding: '24px 20px 40px' }">
+      <h3 class="bind-popup-title">身份绑定</h3>
+      <p class="bind-popup-desc">完善信息以便提供更准确的健康服务</p>
+      <van-form @submit="onBindIdentity" class="bind-form">
+        <van-field
+          v-model="bindForm.realName"
+          label="姓名"
+          placeholder="请输入真实姓名"
+          :rules="[{ required: true, message: '请输入真实姓名' }]"
+          clearable
+        />
+        <van-field
+          v-model="bindForm.idCard"
+          label="身份证"
+          placeholder="请输入身份证号"
+          maxlength="18"
+          :rules="[
+            { required: true, message: '请输入身份证号' },
+            { pattern: /^\d{17}[\dXx]$/, message: '身份证号格式不正确' }
+          ]"
+          clearable
+        />
+        <van-field name="gender" label="性别">
+          <template #input>
+            <van-radio-group v-model="bindForm.gender" direction="horizontal">
+              <van-radio :name="1">男</van-radio>
+              <van-radio :name="2">女</van-radio>
+            </van-radio-group>
+          </template>
+        </van-field>
+        <van-field
+          v-model="bindForm.email"
+          label="邮箱"
+          placeholder="请输入邮箱（用于密码找回）"
+          type="email"
+          clearable
+        />
+        <div class="bind-actions">
+          <van-button block type="primary" native-type="submit" :loading="bindLoading" loading-text="提交中..." round size="large">
+            确认绑定
+          </van-button>
+        </div>
+      </van-form>
+    </van-popup>
 
     <!-- 功能区 -->
     <div class="content">
@@ -167,17 +262,75 @@
           </template>
         </div>
       </section>
+
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
+import { showConfirmDialog, showToast, showSuccessToast } from 'vant'
 import { useUserStore } from '@/stores/user'
 import { getPatientStats } from '@/api/dashboard'
+import { logout as logoutApi, bindIdentity } from '@/api/auth'
 import type { PatientStats } from '@/api/dashboard'
 
+const router = useRouter()
 const userStore = useUserStore()
+
+/** 头像浮动面板 */
+const showAvatarPanel = ref(false)
+
+/** 角色中文标签 */
+const roleLabel = computed(() => {
+  const map: Record<string, string> = {
+    PATIENT: '患者',
+    DOCTOR: '医生',
+    PHARMACIST: '药剂师',
+    ADMIN: '管理员'
+  }
+  return map[userStore.role] || userStore.role || ''
+})
+
+function toggleAvatarPanel() {
+  showAvatarPanel.value = !showAvatarPanel.value
+}
+
+/** 身份绑定 */
+const showBindPopup = ref(false)
+const bindLoading = ref(false)
+const bindForm = reactive({
+  realName: '',
+  idCard: '',
+  gender: 1,
+  email: ''
+})
+
+function openBindIdentity() {
+  showAvatarPanel.value = false
+  showBindPopup.value = true
+}
+
+async function onBindIdentity() {
+  bindLoading.value = true
+  try {
+    await bindIdentity({
+      realName: bindForm.realName,
+      idCard: bindForm.idCard,
+      gender: bindForm.gender,
+      email: bindForm.email || undefined
+    })
+    showSuccessToast('身份绑定成功')
+    showBindPopup.value = false
+    // 更新Store中的realName
+    userStore.realName = bindForm.realName
+  } catch {
+    // 错误已在拦截器中处理
+  } finally {
+    bindLoading.value = false
+  }
+}
 
 const stats = ref<PatientStats>({
   consultCount: 0,
@@ -216,9 +369,7 @@ const pharmacistMenuItems = [
 
 /** 管理员功能菜单 */
 const adminRoleMenuItems = [
-  { text: '排班管理', desc: '管理医生出诊排班', icon: 'schedule', path: '/admin/schedule' },
-  { text: '处方审核', desc: '审核待处理的处方', icon: 'review', path: '/admin/prescription/review' },
-  { text: '开具处方', desc: '为患者开具电子处方', icon: 'issue', path: '/admin/prescription/issue' }
+  { text: '排班管理', desc: '管理医生出诊排班', icon: 'schedule', path: '/admin/schedule' }
 ]
 
 /** 根据角色动态计算功能菜单 */
@@ -237,9 +388,7 @@ const adminMenuItems = computed(() => {
   const role = userStore.role
   if (role === 'ADMIN') {
     items.push(
-      { title: '排班管理', desc: '管理医生出诊排班', icon: 'schedule', iconClass: 'list-icon-admin', path: '/admin/schedule' },
-      { title: '处方审核', desc: '审核待处理的处方', icon: 'review', iconClass: 'list-icon-review', path: '/admin/prescription/review' },
-      { title: '开具处方', desc: '为患者开具电子处方', icon: 'issue', iconClass: 'list-icon-issue', path: '/admin/prescription/issue' }
+      { title: '排班管理', desc: '管理医生出诊排班', icon: 'schedule', iconClass: 'list-icon-admin', path: '/admin/schedule' }
     )
   } else if (role === 'DOCTOR') {
     items.push(
@@ -252,6 +401,33 @@ const adminMenuItems = computed(() => {
   }
   return items
 })
+
+/** 登出操作 */
+async function handleLogout() {
+  showAvatarPanel.value = false
+
+  try {
+    await showConfirmDialog({
+      title: '退出登录',
+      message: '确定要退出登录吗？',
+      confirmButtonText: '确定',
+      cancelButtonText: '取消'
+    })
+  } catch {
+    // 用户点击取消，直接返回
+    return
+  }
+
+  try {
+    await logoutApi()
+  } catch {
+    // 即使接口失败也继续执行本地登出
+  }
+
+  userStore.logout()
+  showToast('已退出登录')
+  router.push('/login')
+}
 </script>
 
 <style scoped>
@@ -293,6 +469,28 @@ const adminMenuItems = computed(() => {
 
 .hero-avatar {
   flex-shrink: 0;
+  position: relative;
+}
+
+.hero-avatar--clickable {
+  cursor: pointer;
+  transition: transform var(--transition-fast);
+}
+
+.hero-avatar--clickable:active {
+  transform: scale(0.92);
+}
+
+.hero-avatar-arrow {
+  position: absolute;
+  bottom: -2px;
+  right: -4px;
+  color: var(--color-text-tertiary);
+  transition: transform var(--transition-fast);
+}
+
+.hero-avatar-arrow--open {
+  transform: rotate(180deg);
 }
 
 .hero-text {
@@ -513,9 +711,175 @@ const adminMenuItems = computed(() => {
   background: var(--color-divider);
 }
 
+/* ============ Avatar Panel (B站风格) ============ */
+.avatar-panel-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 99;
+}
+
+.avatar-panel {
+  position: relative;
+  z-index: 100;
+  margin: -12px 20px 0;
+}
+
+.avatar-panel-arrow {
+  width: 12px;
+  height: 12px;
+  margin-left: 16px;
+  margin-bottom: -1px;
+  background: var(--color-card);
+  border-left: 1px solid var(--color-card-border);
+  border-top: 1px solid var(--color-card-border);
+  transform: rotate(45deg);
+  border-radius: 2px 0 0 0;
+}
+
+.avatar-panel-body {
+  background: var(--color-card);
+  border: 1px solid var(--color-card-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+  padding: 16px;
+  animation: panel-in 0.2s ease;
+}
+
+.avatar-panel-user {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding-bottom: 12px;
+}
+
+.avatar-panel-user-info {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.avatar-panel-name {
+  font-size: 16px;
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.avatar-panel-role {
+  display: inline-block;
+  font-size: 11px;
+  font-weight: var(--font-weight-medium);
+  color: var(--color-primary);
+  background: var(--color-primary-light);
+  padding: 2px 8px;
+  border-radius: var(--radius-full);
+  width: fit-content;
+}
+
+.avatar-panel-divider {
+  height: 1px;
+  background: var(--color-divider);
+  margin: 0 0 4px;
+}
+
+.avatar-panel-actions {
+  padding-top: 4px;
+}
+
+.avatar-panel-action {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 8px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: background var(--transition-fast);
+  font-size: 14px;
+  color: var(--color-text-secondary);
+}
+
+.avatar-panel-action:active {
+  background: var(--color-bg);
+}
+
+.avatar-panel-action--logout {
+  color: #DC2626;
+}
+
+.avatar-panel-action--logout:active {
+  background: #FEF2F2;
+}
+
+/* 面板动画 */
+.panel-enter-active {
+  animation: panel-in 0.2s ease;
+}
+
+.panel-leave-active {
+  animation: panel-in 0.15s ease reverse;
+}
+
+@keyframes panel-in {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.fade-enter-active,
+.fade-leave-active {
+  transition: opacity 0.15s ease;
+}
+
+.fade-enter-from,
+.fade-leave-to {
+  opacity: 0;
+}
+
 .home-page {
   min-height: 100vh;
   background: var(--color-bg);
   padding-bottom: 60px;
+}
+
+/* ============ Bind Identity Popup ============ */
+.bind-popup-title {
+  font-size: 18px;
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text);
+  margin-bottom: 4px;
+}
+
+.bind-popup-desc {
+  font-size: 13px;
+  color: var(--color-text-secondary);
+  margin-bottom: 16px;
+}
+
+.bind-form :deep(.van-field) {
+  padding: 12px 0;
+}
+
+.bind-form :deep(.van-field__label) {
+  width: 56px;
+  color: var(--color-text-secondary);
+  font-size: 14px;
+}
+
+.bind-actions {
+  margin-top: 20px;
+}
+
+.bind-actions :deep(.van-button--primary) {
+  height: 48px;
+  font-size: 16px;
+  font-weight: var(--font-weight-semibold);
 }
 </style>

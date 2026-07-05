@@ -18,6 +18,8 @@ export interface LoginInfo {
   role: string
   patientId?: number | null
   doctorId?: number | null
+  isNewUser?: boolean
+  randomPassword?: string
 }
 
 export const useUserStore = defineStore('user', () => {
@@ -34,6 +36,9 @@ export const useUserStore = defineStore('user', () => {
   const isPharmacist = computed(() => role.value === 'PHARMACIST')
   const isAdmin = computed(() => role.value === 'ADMIN')
   const isStaff = computed(() => ['DOCTOR', 'PHARMACIST', 'ADMIN'].includes(role.value))
+
+  /** 资料是否已完善（有真实姓名即视为已完善） */
+  const isProfileComplete = computed(() => !!realName.value && realName.value.length > 0 && !realName.value.includes('****'))
 
   /** 兼容旧代码：返回患者 ID（仅当角色为 PATIENT 时） */
   const patientId = computed<number | null>(() => {
@@ -80,6 +85,7 @@ export const useUserStore = defineStore('user', () => {
     isPharmacist,
     isAdmin,
     isStaff,
+    isProfileComplete,
     setLoginInfo,
     logout
   }
