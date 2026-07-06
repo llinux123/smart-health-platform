@@ -34,6 +34,9 @@ public class TurnVO {
     @Schema(description = "引用来源列表")
     private List<ConsultStreamResponse.Citation> citations;
 
+    @Schema(description = "发送者类型", allowableValues = {"PATIENT", "AI", "DOCTOR"})
+    private String senderType;
+
     @Schema(description = "创建时间")
     private LocalDateTime createTime;
 }

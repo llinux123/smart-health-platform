@@ -90,4 +90,29 @@ public interface ConsultationSessionMapper {
 
     @Select("SELECT COUNT(*) FROM t_consultation_session WHERE patient_id = #{patientId} AND is_deleted = 0")
     int countByPatientId(@Param("patientId") Long patientId);
+
+    /**
+     * 查询医生待接诊/沟通中的会话（状态为 PENDING_DOCTOR 或 DOCTOR_ACTIVE）
+     */
+    @Select({
+            "<script>",
+            "SELECT cs.* FROM t_consultation_session cs",
+            "WHERE cs.is_deleted = 0",
+            "  AND cs.status IN ('PENDING_DOCTOR', 'DOCTOR_ACTIVE')",
+            "  AND (cs.assigned_doctor_id IS NULL OR cs.assigned_doctor_id = #{doctorId})",
+            "<if test='keyword != null and keyword != \"\"'>",
+            "  AND (cs.symptom_draft LIKE CONCAT('%', #{keyword}, '%')",
+            "       OR cs.ai_summary LIKE CONCAT('%', #{keyword}, '%'))",
+            "</if>",
+            "ORDER BY FIELD(cs.status, 'PENDING_DOCTOR', 'DOCTOR_ACTIVE'), cs.last_chat_time DESC",
+            "</script>"
+    })
+    List<ConsultationSession> selectPendingForDoctor(@Param("doctorId") Long doctorId,
+                                                     @Param("keyword") String keyword);
+
+    /**
+     * 更新会话状态 + 指配医生
+     */
+    @Update("UPDATE t_consultation_session SET status = #{status}, assigned_doctor_id = #{doctorId}, update_time = NOW() WHERE id = #{id}")
+    int updateStatusAndDoctor(@Param("id") Long id, @Param("status") String status, @Param("doctorId") Long doctorId);
 }

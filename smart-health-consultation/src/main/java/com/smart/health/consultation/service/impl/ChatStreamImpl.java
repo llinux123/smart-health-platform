@@ -193,6 +193,7 @@ public class ChatStreamImpl implements ChatStream {
         turn.setUserMessage(userMessage);
         turn.setAssistantMessage(assistantMessage);
         turn.setCitations(serializeCitations(citations));
+        turn.setSenderType("AI");
         turnMapper.insert(turn);
     }
 
@@ -272,6 +273,7 @@ public class ChatStreamImpl implements ChatStream {
                 .userMessage(turn.getUserMessage())
                 .assistantMessage(turn.getAssistantMessage())
                 .citations(citations)
+                .senderType(turn.getSenderType())
                 .createTime(turn.getCreateTime())
                 .build();
     }

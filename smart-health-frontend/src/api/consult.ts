@@ -32,11 +32,13 @@ export interface SessionInfo {
   fileUrls: string
   aiSummary: string
   turnCount: number
-  status: 'IN_PROGRESS' | 'COMPLETED'
+  status: 'IN_PROGRESS' | 'COMPLETED' | 'PENDING_DOCTOR' | 'DOCTOR_ACTIVE'
   isPinned: boolean
   createTime: string
   lastChatTime: string
   hasRating: boolean
+  assignedDoctorId?: number
+  assignedDoctorName?: string
 }
 
 export interface PageResult<T> {
@@ -80,6 +82,13 @@ export function completeSession(sessionSn: string) {
   return request.post(`/api/v1/ai/sessions/${sessionSn}/complete`)
 }
 
+/** 转接真人医生 */
+export function handoffSession(sessionSn: string, reason?: string) {
+  return request.post(`/api/v1/ai/sessions/${sessionSn}/handoff`, null, {
+    params: { reason }
+  })
+}
+
 /** 评分 */
 export function rateSession(sessionSn: string, rating: number, feedback?: string) {
   return request.post(`/api/v1/ai/sessions/${sessionSn}/rate`, { rating, feedback })
@@ -93,6 +102,7 @@ export interface TurnInfo {
   userMessage: string
   assistantMessage: string
   citations: Array<{ title: string; category: string; snippet: string }>
+  senderType?: string
   createTime: string
 }
 
@@ -132,4 +142,51 @@ export function permanentDeleteSession(sessionSn: string) {
 /** @deprecated 使用 getSessionTurns 替代 */
 export function getSessionHistory(sessionSn: string) {
   return request.get(`/api/v1/ai/sessions/${sessionSn}/history`)
+}
+
+// ============ 医生端问诊接口 ============
+
+export interface DoctorConsultSession {
+  sessionSn: string
+  patientName: string
+  patientGender: number
+  patientAge: number
+  symptomSummary: string
+  fileCount: number
+  turnCount: number
+  status: 'PENDING_DOCTOR' | 'DOCTOR_ACTIVE'
+  lastChatTime: string
+}
+
+export interface DoctorConsultDetail {
+  sessionSn: string
+  patientName: string
+  patientGender: number
+  patientAge: number
+  symptomDraft: string
+  fileUrls: string[]
+  status: string
+  turns: TurnInfo[]
+  createTime: string
+  lastChatTime: string
+}
+
+/** 医生端：待接诊列表 */
+export function listDoctorPending(params: { keyword?: string; page?: number; size?: number } = {}) {
+  return request.get('/api/v1/doctor/consultations/pending', { params })
+}
+
+/** 医生端：查看问诊详情 */
+export function getDoctorConsultDetail(sessionSn: string) {
+  return request.get(`/api/v1/doctor/consultations/${sessionSn}`)
+}
+
+/** 医生端：回复患者 */
+export function doctorReply(sessionSn: string, message: string, action: 'REPLY' | 'RESOLVE' = 'REPLY') {
+  return request.post(`/api/v1/doctor/consultations/${sessionSn}/reply`, { message, action })
+}
+
+/** 医生端：标记已解决 */
+export function doctorResolve(sessionSn: string) {
+  return request.post(`/api/v1/doctor/consultations/${sessionSn}/resolve`)
 }

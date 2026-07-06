@@ -117,6 +117,20 @@ const routes: RouteRecordRaw[] = [
     meta: { requiresAuth: true, hideTab: true },
     props: true
   },
+  // 医生问诊接诊
+  {
+    path: '/doctor/consultations',
+    name: 'DoctorConsultations',
+    component: () => import('@/views/doctor/DoctorConsultationListPage.vue'),
+    meta: { requiresAuth: true, hideTab: true, roles: ['DOCTOR'] }
+  },
+  {
+    path: '/doctor/consultations/:sessionSn',
+    name: 'DoctorConsultationDetail',
+    component: () => import('@/views/doctor/DoctorConsultationDetailPage.vue'),
+    meta: { requiresAuth: true, hideTab: true, roles: ['DOCTOR'] },
+    props: true
+  },
   // 管理后台 — 角色限制
   {
     path: '/admin/schedule',
@@ -140,6 +154,12 @@ const routes: RouteRecordRaw[] = [
     path: '/admin/inventory',
     name: 'AdminInventory',
     component: () => import('@/views/admin/InventoryManagePage.vue'),
+    meta: { requiresAuth: true, hideTab: true, roles: ['ADMIN'] }
+  },
+  {
+    path: '/admin/employees',
+    name: 'AdminEmployees',
+    component: () => import('@/views/admin/EmployeeManagePage.vue'),
     meta: { requiresAuth: true, hideTab: true, roles: ['ADMIN'] }
   }
 ]

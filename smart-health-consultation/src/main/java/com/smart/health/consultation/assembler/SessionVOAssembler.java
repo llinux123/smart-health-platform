@@ -40,6 +40,7 @@ public class SessionVOAssembler {
                 .createTime(s.getCreateTime())
                 .lastChatTime(s.getLastChatTime())
                 .hasRating(hasRating)
+                .assignedDoctorId(s.getAssignedDoctorId())
                 .build();
     }
 

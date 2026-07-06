@@ -57,6 +57,14 @@
     </template>
     <!-- 医生导航 -->
     <template v-else-if="userStore.isDoctor">
+      <van-tabbar-item to="/doctor/consultations">
+        <span class="tab-icon-wrapper">
+          <svg class="tab-icon" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 15C21 15.5304 20.7893 16.0391 20.4142 16.4142C20.0391 16.7893 19.5304 17 19 17H7L3 21V5C3 4.46957 3.21071 3.96086 3.58579 3.58579C3.96086 3.21071 4.46957 3 5 3H19C19.5304 3 20.0391 3.21071 20.4142 3.58579C20.7893 3.96086 21 4.46957 21 5V15Z" />
+          </svg>
+        </span>
+        接诊
+      </van-tabbar-item>
       <van-tabbar-item to="/admin/prescription/issue">
         <span class="tab-icon-wrapper">
           <svg class="tab-icon" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -82,19 +90,9 @@
         审核
       </van-tabbar-item>
     </template>
-    <!-- 管理员导航 -->
+    <!-- 管理员导航（仅首页） -->
     <template v-else-if="userStore.isAdmin">
-      <van-tabbar-item to="/admin/schedule">
-        <span class="tab-icon-wrapper">
-          <svg class="tab-icon" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
-            <line x1="16" y1="2" x2="16" y2="6" />
-            <line x1="8" y1="2" x2="8" y2="6" />
-            <line x1="3" y1="10" x2="21" y2="10" />
-          </svg>
-        </span>
-        排班
-      </van-tabbar-item>
+      <!-- 管理员仅展示首页，通过工作台进入各功能 -->
     </template>
   </van-tabbar>
 </template>
@@ -114,9 +112,12 @@ const tabMap: Record<string, number> = {
   '/registration/orders': 2,
   '/prescriptions': 3,
   '/my': 4,
-  '/admin/prescription/issue': 1,
+  '/doctor/consultations': 1,
+  '/admin/prescription/issue': 2,
   '/admin/prescription/review': 1,
-  '/admin/schedule': 1
+  '/admin/schedule': 1,
+  '/admin/inventory': 1,
+  '/admin/employees': 1
 }
 
 watch(

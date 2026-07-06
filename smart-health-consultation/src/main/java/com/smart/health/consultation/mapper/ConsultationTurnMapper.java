@@ -14,8 +14,8 @@ public interface ConsultationTurnMapper {
     /**
      * 插入对话轮次
      */
-    @Insert("INSERT INTO t_consultation_turn (session_sn, turn_number, user_message, assistant_message, citations) " +
-            "VALUES (#{sessionSn}, #{turnNumber}, #{userMessage}, #{assistantMessage}, #{citations})")
+    @Insert("INSERT INTO t_consultation_turn (session_sn, turn_number, user_message, assistant_message, citations, sender_type) " +
+            "VALUES (#{sessionSn}, #{turnNumber}, #{userMessage}, #{assistantMessage}, #{citations}, #{senderType})")
     @Options(useGeneratedKeys = true, keyProperty = "id")
     int insert(ConsultationTurn turn);
 

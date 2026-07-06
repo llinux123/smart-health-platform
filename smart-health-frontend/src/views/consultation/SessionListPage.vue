@@ -211,7 +211,9 @@ function getStatusText(status: string) {
 }
 
 function getStatusClass(status: string) {
-  return status === 'IN_PROGRESS' ? 'status--active' : 'status--done'
+  if (status === 'IN_PROGRESS' || status === 'DOCTOR_ACTIVE') return 'status--active'
+  if (status === 'PENDING_DOCTOR') return 'status--handoff'
+  return 'status--done'
 }
 
 function hasActiveFilter() {
@@ -509,6 +511,11 @@ function hasActiveFilter() {
 .status--done {
   background: var(--color-bg-alt);
   color: var(--color-text-tertiary);
+}
+
+.status--handoff {
+  background: #fff3e0;
+  color: #e65100;
 }
 
 .session-card__summary {
