@@ -105,4 +105,20 @@ request.interceptors.response.use(
   }
 )
 
-export default request
+/**
+ * 类型安全的 HTTP 方法包装
+ * 由于响应拦截器已解包 ApiResponse.data，此处直接返回 Promise<T>
+ */
+const http = {
+  get<T = any>(url: string, config?: any): Promise<T> {
+    return request.get(url, config) as Promise<T>
+  },
+  post<T = any>(url: string, data?: any, config?: any): Promise<T> {
+    return request.post(url, data, config) as Promise<T>
+  },
+  put<T = any>(url: string, data?: any, config?: any): Promise<T> {
+    return request.put(url, data, config) as Promise<T>
+  }
+}
+
+export default http

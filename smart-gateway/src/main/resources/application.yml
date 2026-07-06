@@ -20,73 +20,72 @@ spring:
       routes:
         # ===== user-service =====
         - id: user-service-auth
-          uri: lb://smart-health-platform
+          uri: lb://user-service
           predicates:
             - Path=/api/v1/auth/**
 
         - id: user-service-staff
-          uri: lb://smart-health-platform
+          uri: lb://user-service
           predicates:
             - Path=/api/v1/staff/**
 
         - id: user-service-admin-patients
-          uri: lb://smart-health-platform
+          uri: lb://user-service
           predicates:
             - Path=/api/v1/admin/patients/**
 
+        - id: user-service-dashboard
+          uri: lb://user-service
+          predicates:
+            - Path=/api/v1/dashboard/**
+
         # ===== registration-service =====
         - id: registration-service-schedule
-          uri: lb://smart-health-platform
+          uri: lb://registration-service
           predicates:
             - Path=/api/v1/schedule/**
 
         - id: registration-service-registration
-          uri: lb://smart-health-platform
+          uri: lb://registration-service
           predicates:
             - Path=/api/v1/registration/**
 
         - id: registration-service-doctor
-          uri: lb://smart-health-platform
+          uri: lb://registration-service
           predicates:
             - Path=/api/v1/doctor/**
 
         - id: registration-service-dept
-          uri: lb://smart-health-platform
+          uri: lb://registration-service
           predicates:
             - Path=/api/v1/dept/**
 
         # ===== consultation-service =====
         - id: consultation-service-ai
-          uri: lb://smart-health-platform
+          uri: lb://consultation-service
           predicates:
             - Path=/api/v1/ai/**
 
         - id: consultation-service-files
-          uri: lb://smart-health-platform
+          uri: lb://consultation-service
           predicates:
             - Path=/api/v1/files/**
 
         # ===== prescription-service =====
         - id: prescription-service-issue
-          uri: lb://smart-health-platform
+          uri: lb://prescription-service
           predicates:
             - Path=/api/v1/prescription/**
 
         - id: prescription-service-prescriptions
-          uri: lb://smart-health-platform
+          uri: lb://prescription-service
           predicates:
             - Path=/api/v1/prescriptions/**
 
         - id: prescription-service-pharmacy
-          uri: lb://smart-health-platform
+          uri: lb://prescription-service
           predicates:
             - Path=/api/v1/pharmacy/**
-
-        # ===== dashboard (放在 user-service，聚合各服务统计数据) =====
-        - id: user-service-dashboard
-          uri: lb://smart-health-platform
-          predicates:
-            - Path=/api/v1/dashboard/**
 
       globalcors:
         cors-configurations:

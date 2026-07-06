@@ -116,15 +116,16 @@
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { showConfirmDialog, showToast } from 'vant'
+import type { UploaderFileListItem, UploaderInstance } from 'vant'
 import { useUserStore } from '@/stores/user'
-import { getProfile, updateUsername, updateAvatar, logout as logoutApi } from '@/api/auth'
+import { DEFAULT_AVATAR, getProfile, updateUsername, updateAvatar, logout as logoutApi } from '@/api/auth'
 import type { ProfileData } from '@/api/auth'
 
 const router = useRouter()
 const userStore = useUserStore()
 
 const profile = computed<Partial<ProfileData>>(() => userStore.profile || {})
-const avatarUrl = computed(() => profile.value.avatar || 'https://fastly.jsdelivr.net/npm/@vant/assets/cat.jpeg')
+const avatarUrl = computed(() => profile.value.avatar || DEFAULT_AVATAR)
 
 const isIdCardBound = computed(() => {
   const status = profile.value.idCardStatus
@@ -162,28 +163,30 @@ onMounted(async () => {
   try {
     const data = await getProfile()
     userStore.setProfile(data)
-  } catch {
-    // 失败时保持现有数据
+  } catch (e) {
+    console.warn('[AccountInfoPage] 获取 profile 失败', e)
   }
 })
 
 function onAvatarClick() {
   // 触发隐藏的上传组件
-  ;(uploaderRef.value as any)?.$el?.querySelector('input')?.click()
+  uploaderRef.value?.chooseFile()
 }
 
 const avatarFileList = ref([])
-const uploaderRef = ref<HTMLElement | null>(null)
+const uploaderRef = ref<UploaderInstance | null>(null)
 
-async function onAvatarRead(file: any) {
+async function onAvatarRead(items: UploaderFileListItem | UploaderFileListItem[]) {
+  const file = Array.isArray(items) ? items[0] : items
+  if (!file?.file) return
   try {
-    // 这里先使用本地 URL 作为头像，实际应上传后返回 URL
+    // TODO: 需要先通过文件上传接口获取永久 URL，再调用 updateAvatar
     const url = URL.createObjectURL(file.file)
     const data = await updateAvatar(url)
     userStore.setProfile(data)
     showToast('头像更新成功')
-  } catch {
-    // 错误已在拦截器处理
+  } catch (e) {
+    console.warn('[AccountInfoPage] 头像更新失败', e)
   }
 }
 
@@ -205,8 +208,8 @@ async function onUsernameConfirm() {
     const data = await updateUsername(name)
     userStore.setProfile(data)
     showToast('用户名更新成功')
-  } catch {
-    // 错误已在拦截器处理
+  } catch (e) {
+    console.warn('[AccountInfoPage] 更新用户名失败', e)
   }
 }
 
@@ -242,8 +245,8 @@ async function handleLogout() {
 
   try {
     await logoutApi()
-  } catch {
-    // 即使接口失败也继续执行本地登出
+  } catch (e) {
+    console.warn('[AccountInfoPage] 登出接口失败', e)
   }
 
   userStore.logout()

@@ -35,8 +35,20 @@ import { formatDate } from '@/utils/format'
 import ScheduleCard from '@/components/ScheduleCard.vue'
 import EmptyState from '@/components/EmptyState.vue'
 
+interface Schedule {
+  id: number
+  deptName: string
+  price: number
+  doctorName?: string
+  doctorAvatar?: string
+  workDate: string
+  shiftName?: string
+  shift?: string
+  visibleCount: number
+}
+
 const router = useRouter()
-const schedules = ref([])
+const schedules = ref<Schedule[]>([])
 const loading = ref(true)
 const filterDept = ref('')
 const filterDate = ref('')
@@ -86,7 +98,7 @@ async function loadSchedules() {
   }
 }
 
-function goToSeckill(schedule) {
+function goToSeckill(schedule: Schedule) {
   router.push(`/registration/seckill/${schedule.id}`)
 }
 </script>

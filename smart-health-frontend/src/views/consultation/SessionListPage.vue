@@ -169,7 +169,7 @@ async function handleDelete(session: SessionInfo) {
     confirmButtonText: '移入回收站',
     cancelButtonText: '直接删除',
     showCancelButton: true
-  }).then((action: string) => {
+  }).then((action: 'confirm' | 'cancel' | undefined) => {
     if (action === 'confirm') {
       doDelete(session, 'recycle')
     } else {

@@ -1,0 +1,46 @@
+# Git
+.git
+.gitignore
+.gitattributes
+
+# Maven
+**/target/
+!**/target/*.jar
+!**/target/*-exec.jar
+**/*.class
+
+# Node
+**/node_modules/
+**/dist/
+
+# IDE
+.idea/
+.vscode/
+*.iml
+.settings/
+
+# Qoder / Agent
+.qoder/
+.agents/
+
+# Docker
+.dockerignore
+Dockerfile*
+
+# Logs
+*.log
+
+# System
+.DS_Store
+Thumbs.db
+
+# Env (示例保留，但需在部署时重新配置)
+.env
+
+# Docs
+docs/
+*.md
+PRD.md
+
+# Test resources
+test-resources/

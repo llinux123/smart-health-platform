@@ -104,6 +104,15 @@ import { useRouter } from 'vue-router'
 import { showSuccessToast } from 'vant'
 import { issuePrescription, searchMedicine } from '@/api/prescription'
 
+interface MedicineItem {
+  id: number
+  name: string
+  spec?: string
+  manufacturer?: string
+  unit?: string
+  price?: number
+}
+
 const router = useRouter()
 const submitting = ref(false)
 
@@ -111,7 +120,7 @@ const submitting = ref(false)
 const showPicker = ref(false)
 const searchKeyword = ref('')
 const searchLoading = ref(false)
-const searchResults = ref([])
+const searchResults = ref<MedicineItem[]>([])
 let pickerTargetIdx = -1
 let searchTimer: ReturnType<typeof setTimeout> | null = null
 
@@ -167,7 +176,7 @@ function addMedicine() {
   form.value.medicines.push(createEmptyMed())
 }
 
-function removeMedicine(idx) {
+function removeMedicine(idx: number) {
   form.value.medicines.splice(idx, 1)
 }
 

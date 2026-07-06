@@ -36,6 +36,8 @@ export interface BindIdentityData {
   skipVerification?: boolean
 }
 
+export const DEFAULT_AVATAR = 'https://fastly.jsdelivr.net/npm/@vant/assets/cat.jpeg'
+
 export interface ProfileData {
   id: number
   username: string
@@ -43,14 +45,14 @@ export interface ProfileData {
   idCard: string
   phone: string
   gender: number
-  email: string
-  avatar: string
-  birthday: string
+  email: string | null
+  avatar: string | null
+  birthday: string | null
   idCardStatus: number
-  idCardFrontUrl: string
-  idCardBackUrl: string
-  faceRecognitionUrl: string
-  createTime: string
+  idCardFrontUrl: string | null
+  idCardBackUrl: string | null
+  faceRecognitionUrl: string | null
+  createTime: string | null
 }
 
 export interface ResetPasswordData {
@@ -76,7 +78,7 @@ export function smsLogin(phone: string, code: string) {
 }
 
 export function bindIdentity(data: BindIdentityData) {
-  return request.post('/api/v1/auth/bind-identity', data)
+  return request.post<ProfileData>('/api/v1/auth/bind-identity', data)
 }
 
 export function resetPassword(data: ResetPasswordData) {

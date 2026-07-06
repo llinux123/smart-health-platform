@@ -85,7 +85,7 @@ function getFileName(url: string) {
 
 function renderMarkdown(text: string) {
   if (!text) return ''
-  return DOMPurify.sanitize(marked(text))
+  return DOMPurify.sanitize(marked(text) as string)
 }
 
 // ============ 生命周期 ============
@@ -315,7 +315,7 @@ const openCitations = ref<number[]>([])
                   <van-collapse-item title="📚 引用来源" :name="turn.turnNumber">
                     <div v-for="(cite, ci) in turn.citations" :key="ci" class="citation-item">
                       <strong>{{ cite.title }}</strong>
-                      <van-tag type="primary" size="mini">{{ cite.category }}</van-tag>
+                      <van-tag type="primary">{{ cite.category }}</van-tag>
                       <p>{{ cite.snippet }}</p>
                     </div>
                   </van-collapse-item>
@@ -328,7 +328,7 @@ const openCitations = ref<number[]>([])
                 class="turn-actions"
               >
                 <van-button
-                  size="mini"
+                  size="small"
                   plain
                   icon="replay"
                   :loading="regenerating"
@@ -361,7 +361,7 @@ const openCitations = ref<number[]>([])
           <van-collapse-item title="📚 引用来源" name="stream">
             <div v-for="(cite, ci) in streamCitations" :key="ci" class="citation-item">
               <strong>{{ cite.title }}</strong>
-              <van-tag type="primary" size="mini">{{ cite.category }}</van-tag>
+              <van-tag type="primary">{{ cite.category }}</van-tag>
               <p>{{ cite.snippet }}</p>
             </div>
           </van-collapse-item>

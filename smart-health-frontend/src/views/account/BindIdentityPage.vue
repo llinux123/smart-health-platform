@@ -74,9 +74,10 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed } from 'vue'
+import { ref, reactive, computed, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { showToast } from 'vant'
+import type { UploaderFileListItem } from 'vant'
 import { useUserStore } from '@/stores/user'
 import { bindIdentity } from '@/api/auth'
 
@@ -101,21 +102,40 @@ const backFileList = ref([])
 const faceFileList = ref([])
 const submitting = ref(false)
 
+/** 跟踪 blob URL 以便在组件卸载时释放 */
+const blobUrls = ref<string[]>([])
+
+onUnmounted(() => {
+  blobUrls.value.forEach(url => URL.revokeObjectURL(url))
+})
+
 const idCardRules = [
   { required: true, message: '请输入身份证号' },
   { pattern: /^\d{17}[\dXx]$/, message: '身份证号格式不正确' }
 ]
 
-function onFrontRead(file: any) {
-  form.idCardFrontUrl = URL.createObjectURL(file.file)
+function onFrontRead(items: UploaderFileListItem | UploaderFileListItem[]) {
+  const file = Array.isArray(items) ? items[0] : items
+  if (!file?.file) return
+  const url = URL.createObjectURL(file.file)
+  form.idCardFrontUrl = url
+  blobUrls.value.push(url)
 }
 
-function onBackRead(file: any) {
-  form.idCardBackUrl = URL.createObjectURL(file.file)
+function onBackRead(items: UploaderFileListItem | UploaderFileListItem[]) {
+  const file = Array.isArray(items) ? items[0] : items
+  if (!file?.file) return
+  const url = URL.createObjectURL(file.file)
+  form.idCardBackUrl = url
+  blobUrls.value.push(url)
 }
 
-function onFaceRead(file: any) {
-  form.faceRecognitionUrl = URL.createObjectURL(file.file)
+function onFaceRead(items: UploaderFileListItem | UploaderFileListItem[]) {
+  const file = Array.isArray(items) ? items[0] : items
+  if (!file?.file) return
+  const url = URL.createObjectURL(file.file)
+  form.faceRecognitionUrl = url
+  blobUrls.value.push(url)
 }
 
 async function onSubmit() {
@@ -134,8 +154,8 @@ async function onSubmit() {
     userStore.setProfile(data)
     showToast('实名认证提交成功')
     router.back()
-  } catch {
-    // 错误已在拦截器处理
+  } catch (e) {
+    console.warn('[BindIdentityPage] 身份绑定提交失败', e)
   } finally {
     submitting.value = false
   }

@@ -99,7 +99,7 @@
   </van-tabbar>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { useUserStore } from '@/stores/user'
@@ -108,7 +108,7 @@ const route = useRoute()
 const userStore = useUserStore()
 const active = ref(0)
 
-const tabMap = {
+const tabMap: Record<string, number> = {
   '/home': 0,
   '/consultation': 1,
   '/registration/orders': 2,
