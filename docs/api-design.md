@@ -217,7 +217,7 @@
 | `keyword` | `String` | — | 搜索关键词（匹配症状描述或 AI 总结） |
 | `startDate` | `String` | — | 开始日期（yyyy-MM-dd） |
 | `endDate` | `String` | — | 结束日期 |
-| `status` | `String` | — | 会话状态筛选 |
+| `status` | `String` | — | 会话状态筛选（IN_PROGRESS / COMPLETED / PENDING_DOCTOR / DOCTOR_ACTIVE） |
 | `isPinned` | `Boolean` | — | 是否置顶 |
 | `page` | `Integer` | 1 | 页码 |
 | `size` | `Integer` | 10 | 每页大小 |
@@ -267,11 +267,14 @@
   "id": 1,
   "turnNumber": 1,
   "userMessage": "用户消息",
-  "assistantMessage": "AI 回复",
+  "assistantMessage": "AI/医生回复",
   "citations": [{ "title": "来源", "url": "..." }],
+  "senderType": "PATIENT",
   "createTime": "2026-01-01T00:00:00"
 }
 ```
+
+> `senderType` 取值：`PATIENT`（患者消息）、`AI`（AI回复）、`DOCTOR`（医生回复）
 
 ---
 
@@ -326,6 +329,18 @@
 | `mode` | `String` | 是 | `recycle` = 移入回收站；`permanent` = 彻底删除 |
 
 **响应**: `Result<Void>`
+
+---
+
+### POST `/api/v1/ai/sessions/{sessionSn}/handoff` — 转接真人医生
+
+**权限**: `PATIENT`
+
+| 参数 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| `reason` | `String` | 否 | 转诊原因 |
+
+**响应**: `Result<Void>`（会话状态变更为 `PENDING_DOCTOR`）
 
 ---
 
@@ -721,3 +736,106 @@
 ### DELETE `/api/v1/admin/patients/{id}` — 删除患者（软删除）
 
 **响应**: `Result<Void>`
+
+---
+
+## 8. 医生问诊模块
+
+> 基础路径: `/api/v1/doctor/consultations`  
+> 权限: `DOCTOR`
+
+### GET `/api/v1/doctor/consultations/pending` — 待接诊列表
+
+**权限**: `DOCTOR`
+
+| 参数 | 类型 | 默认值 | 说明 |
+|------|------|--------|------|
+| `keyword` | `String` | — | 搜索关键词（匹配症状描述） |
+| `page` | `Integer` | 1 | 页码 |
+| `size` | `Integer` | 10 | 每页大小 |
+
+**响应**: `Result<PageResult<DoctorConsultSessionVO>>`
+
+```json
+{
+  "sessionSn": "SN20260101...",
+  "patientName": "张三",
+  "patientGender": 1,
+  "patientAge": 28,
+  "symptomSummary": "头痛三天，伴有恶心...",
+  "fileCount": 0,
+  "turnCount": 3,
+  "status": "PENDING_DOCTOR",
+  "lastChatTime": "2026-01-01T10:00:00"
+}
+```
+
+> `status` 取值：`PENDING_DOCTOR`（待接诊）、`DOCTOR_ACTIVE`（沟通中）
+
+---
+
+### GET `/api/v1/doctor/consultations/{sessionSn}` — 问诊详情
+
+**权限**: `DOCTOR`
+
+**路径参数**: `sessionSn` — 会话编号
+
+**响应**: `Result<DoctorConsultDetailVO>`
+
+```json
+{
+  "sessionSn": "SN20260101...",
+  "patientName": "张三",
+  "patientGender": 1,
+  "patientAge": 28,
+  "symptomDraft": "AI分析报告内容...",
+  "fileUrls": ["https://..."],
+  "status": "PENDING_DOCTOR",
+  "turns": [
+    {
+      "id": 1,
+      "turnNumber": 1,
+      "userMessage": "头痛三天",
+      "assistantMessage": "建议多休息",
+      "senderType": "AI",
+      "createTime": "2026-01-01T10:00:00"
+    }
+  ],
+  "createTime": "2026-01-01T10:00:00",
+  "lastChatTime": "2026-01-01T11:00:00"
+}
+```
+
+---
+
+### POST `/api/v1/doctor/consultations/{sessionSn}/reply` — 回复患者
+
+**权限**: `DOCTOR`
+
+**请求体**:
+
+```json
+{
+  "message": "建议多休息，避免熬夜。如持续不适请来院就诊。",
+  "action": "REPLY"
+}
+```
+
+> `action` 取值：`REPLY`（仅回复）、`RESOLVE`（回复并标记已解决）
+
+**响应**: `Result<DoctorConsultReplyVO>`
+
+```json
+{
+  "turnNumber": 2,
+  "sessionStatus": "DOCTOR_ACTIVE"
+}
+```
+
+---
+
+### POST `/api/v1/doctor/consultations/{sessionSn}/resolve` — 标记已解决
+
+**权限**: `DOCTOR`
+
+**响应**: `Result<Void>`（会话状态变更为 `COMPLETED`）
