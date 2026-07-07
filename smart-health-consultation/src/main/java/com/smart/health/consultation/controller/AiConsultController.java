@@ -132,6 +132,19 @@ public class AiConsultController {
         return Result.ok();
     }
 
+    // ============ 转诊 ============
+
+    @PostMapping("/sessions/{sessionSn}/handoff")
+    @Operation(summary = "转接真人医生", description = "患者将AI问诊会话转接给真人医生")
+    public Result<Void> handoffSession(
+            @PathVariable String sessionSn,
+            @Parameter(description = "转诊原因（可选）") @RequestParam(required = false) String reason,
+            @RequestHeader(value = CommonConstants.TOKEN_HEADER, required = false) String bearerToken) {
+        Long patientId = extractPatientId(bearerToken);
+        sessionManager.handoffSession(sessionSn, patientId, reason);
+        return Result.ok();
+    }
+
     // ============ 重新生成（ChatStream） ============
 
     @PostMapping("/sessions/{sessionSn}/turns/{turnNumber}/regenerate")

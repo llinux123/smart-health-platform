@@ -31,6 +31,9 @@ public class ConsultationSession {
     /** 会话状态，见 {@link com.smart.health.consultation.constant.SessionStatus} */
     private String status;
 
+    /** 指配的医生ID（转诊后记录，关联 t_doctor.id） */
+    private Long assignedDoctorId;
+
     /** 是否已删除(回收站) */
     private Boolean isDeleted;
 

@@ -118,6 +118,9 @@ const http = {
   },
   put<T = any>(url: string, data?: any, config?: any): Promise<T> {
     return request.put(url, data, config) as Promise<T>
+  },
+  del<T = any>(url: string, config?: any): Promise<T> {
+    return request.delete(url, config) as Promise<T>
   }
 }
 

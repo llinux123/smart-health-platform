@@ -28,6 +28,9 @@ public class ConsultationTurn {
     /** 引用来源(JSON数组) */
     private String citations;
 
+    /** 发送者类型: PATIENT / AI / DOCTOR */
+    private String senderType;
+
     /** 创建时间 */
     private LocalDateTime createTime;
 

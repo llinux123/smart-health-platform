@@ -21,7 +21,7 @@
             <p class="hero-prompt">今天感觉如何？让我来帮您</p>
           </div>
         </div>
-        <div class="hero-stats">
+        <div v-if="userStore.isPatient" class="hero-stats">
           <div class="hero-stat">
             <span class="hero-stat-value">{{ stats.consultCount }}</span>
             <span class="hero-stat-label">问诊</span>
@@ -73,7 +73,7 @@
 
     <!-- 功能区 -->
     <div class="content">
-      <div class="feature-grid">
+      <div v-if="menuItems.length > 0" class="feature-grid">
         <div
           v-for="(item, index) in menuItems"
           :key="item.path"
@@ -188,6 +188,17 @@
                     <path d="M16 2L20 6L16 10" />
                     <line x1="10" y1="12" x2="20" y2="12" />
                   </template>
+                  <template v-else-if="item.icon === 'users'">
+                    <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+                    <circle cx="9" cy="7" r="4" />
+                    <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+                    <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+                  </template>
+                  <template v-else-if="item.icon === 'package'">
+                    <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" />
+                    <polyline points="3.27 6.96 12 12.01 20.73 6.96" />
+                    <line x1="12" y1="22.08" x2="12" y2="12" />
+                  </template>
                 </svg>
               </div>
               <div class="list-item-body">
@@ -254,30 +265,18 @@ const patientMenuItems = [
   { text: '挂号记录', desc: '查看我的挂号订单', icon: 'orders', path: '/registration/orders' }
 ]
 
-/** 医生功能菜单 */
-const doctorMenuItems = [
-  { text: '开具处方', desc: '为患者开具电子处方', icon: 'issue', path: '/admin/prescription/issue' },
-  { text: '挂号排班', desc: '查看出诊排班信息', icon: 'calendar', path: '/registration/schedules' }
-]
-
-/** 药师功能菜单 */
-const pharmacistMenuItems = [
-  { text: '处方审核', desc: '审核待处理的处方', icon: 'review', path: '/admin/prescription/review' }
-]
-
-/** 管理员功能菜单 */
-const adminRoleMenuItems = [
-  { text: '排班管理', desc: '管理医生出诊排班', icon: 'schedule', path: '/admin/schedule' }
-]
-
 /** 根据角色动态计算功能菜单 */
 const menuItems = computed(() => {
-  switch (userStore.role) {
-    case 'DOCTOR': return doctorMenuItems
-    case 'PHARMACIST': return pharmacistMenuItems
-    case 'ADMIN': return adminRoleMenuItems
-    default: return patientMenuItems
+  if (userStore.isStaff) {
+    if (userStore.isDoctor) {
+      return [
+        { text: '问诊接诊', desc: '查看并回复患者问诊', icon: 'ai', path: '/doctor/consultations' },
+        { text: '开具处方', desc: '为患者开具电子处方', icon: 'prescription', path: '/admin/prescription/issue' }
+      ]
+    }
+    return []
   }
+  return patientMenuItems
 })
 
 /** 管理后台菜单项（按角色） */
@@ -286,11 +285,13 @@ const adminMenuItems = computed(() => {
   const role = userStore.role
   if (role === 'ADMIN') {
     items.push(
-      { title: '排班管理', desc: '管理医生出诊排班', icon: 'schedule', iconClass: 'list-icon-admin', path: '/admin/schedule' }
+      { title: '排班管理', desc: '管理医生出诊排班', icon: 'schedule', iconClass: 'list-icon-admin', path: '/admin/schedule' },
+      { title: '员工管理', desc: '管理员工账号信息', icon: 'users', iconClass: 'list-icon-admin', path: '/admin/employees' },
+      { title: '库存管理', desc: '药品入库、出库与盘点', icon: 'package', iconClass: 'list-icon-admin', path: '/admin/inventory' }
     )
   } else if (role === 'DOCTOR') {
     items.push(
-      { title: '开具处方', desc: '为患者开具电子处方', icon: 'issue', iconClass: 'list-icon-issue', path: '/admin/prescription/issue' }
+      { title: '问诊接诊', desc: '查看待接诊的患者问诊', icon: 'ai', iconClass: 'list-icon-issue', path: '/doctor/consultations' }
     )
   } else if (role === 'PHARMACIST') {
     items.push(

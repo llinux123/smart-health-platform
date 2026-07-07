@@ -7,7 +7,9 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "typecheck": "vue-tsc --noEmit"
+    "typecheck": "vue-tsc --noEmit",
+    "test:e2e": "npx playwright test consultation-handoff",
+    "test:e2e:ui": "npx playwright test consultation-handoff --ui"
   },
   "dependencies": {
     "axios": "^1.7.2",
@@ -22,6 +24,7 @@
   "devDependencies": {
     "@types/dompurify": "^3.2.0",
     "@types/node": "^26.0.1",
+    "@playwright/test": "^1.49.0",
     "@vant/auto-import-resolver": "^1.2.1",
     "@vitejs/plugin-vue": "^5.0.4",
     "typescript": "^5.4.0",

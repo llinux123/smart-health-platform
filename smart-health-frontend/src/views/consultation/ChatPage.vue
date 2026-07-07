@@ -1,12 +1,12 @@
 <script setup lang="ts">
-import { ref, onMounted, nextTick, watch, computed } from 'vue'
+import { ref, onMounted, nextTick, watch, computed, onUnmounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { showConfirmDialog, showLoadingToast, closeToast, showToast } from 'vant'
 import { marked } from 'marked'
 import DOMPurify from 'dompurify'
 import { useConsultationStore } from '@/stores/consultation'
 import { useSSE } from '@/composables/useSSE'
-import { getSessionDetail, type SessionInfo } from '@/api/consult'
+import { getSessionDetail, handoffSession, type SessionInfo } from '@/api/consult'
 import RatingDialog from './RatingDialog.vue'
 
 const route = useRoute()
@@ -17,6 +17,9 @@ const sessionSn = route.params.sessionSn as string
 // ============ 会话信息 ============
 const sessionInfo = ref<SessionInfo | null>(null)
 const isCompleted = computed(() => sessionInfo.value?.status === 'COMPLETED')
+const isPendingDoctor = computed(() => sessionInfo.value?.status === 'PENDING_DOCTOR')
+const isDoctorActive = computed(() => sessionInfo.value?.status === 'DOCTOR_ACTIVE')
+const isHandoffState = computed(() => isPendingDoctor.value || isDoctorActive.value)
 
 // ============ 初始分析结果（作为第一条对话） ============
 const hasInitialAnalysis = computed(() => {
@@ -206,6 +209,36 @@ async function handleComplete() {
   })
 }
 
+// ============ 转人工医生 ============
+const handingOff = ref(false)
+
+async function handleHandoff() {
+  showConfirmDialog({
+    title: '确认转接真人医生？',
+    message: '您的问诊记录、上传的检查报告和AI分析结果将被发送给医生。医生上线后将尽快回复您。',
+    confirmButtonText: '确认转接',
+    cancelButtonText: '取消'
+  }).then(async () => {
+    handingOff.value = true
+    showLoadingToast({ message: '转接中...', forbidClick: true })
+    try {
+      await handoffSession(sessionSn)
+      if (sessionInfo.value) {
+        sessionInfo.value.status = 'PENDING_DOCTOR'
+      }
+      closeToast()
+      showToast('已转接医生，请耐心等待回复')
+    } catch {
+      closeToast()
+      showToast('转接失败，请重试')
+    } finally {
+      handingOff.value = false
+    }
+  }).catch(() => {
+    // 用户取消
+  })
+}
+
 // ============ 评分完成 ============
 function onRatingComplete() {
   showRating.value = false
@@ -216,6 +249,36 @@ function onRatingComplete() {
 
 // ============ 引用来源折叠 ============
 const openCitations = ref<number[]>([])
+
+// ============ 医生已接诊：30秒轮询 ============
+let pollingTimer: ReturnType<typeof setInterval> | null = null
+
+watch(isDoctorActive, (active) => {
+  if (active) {
+    pollingTimer = setInterval(async () => {
+      try {
+        await store.fetchTurns(sessionSn, 1)
+        if (store.turns.length > 0) {
+          currentTurnNumber.value = store.turns[store.turns.length - 1].turnNumber
+        }
+      } catch {
+        // 轮询静默失败
+      }
+    }, 30000)
+  } else {
+    if (pollingTimer) {
+      clearInterval(pollingTimer)
+      pollingTimer = null
+    }
+  }
+})
+
+onUnmounted(() => {
+  if (pollingTimer) {
+    clearInterval(pollingTimer)
+    pollingTimer = null
+  }
+})
 </script>
 
 <template>
@@ -226,8 +289,8 @@ const openCitations = ref<number[]>([])
       @click-left="$router.push('/consultation')"
     >
       <template #right>
-        <span v-if="sessionInfo" :class="['nav-status', isCompleted ? 'nav-status--done' : 'nav-status--active']">
-          {{ isCompleted ? '已结束' : '问诊中' }}
+        <span v-if="sessionInfo" :class="['nav-status', isCompleted ? 'nav-status--done' : isHandoffState ? 'nav-status--handoff' : 'nav-status--active']">
+          {{ isCompleted ? '已结束' : isPendingDoctor ? '待接诊' : isDoctorActive ? '医生已接诊' : '问诊中' }}
         </span>
       </template>
     </van-nav-bar>
@@ -288,8 +351,8 @@ const openCitations = ref<number[]>([])
           </div>
         </div>
 
-        <!-- 普通用户消息 -->
-        <div v-if="turn.turnNumber > 0" class="message-wrapper">
+        <!-- 普通用户消息（非医生回复） -->
+        <div v-if="turn.turnNumber > 0 && turn.senderType !== 'DOCTOR'" class="message-wrapper">
           <div class="message-bubble user">
             <div class="message-avatar">
               <van-icon name="manager-o" size="20" />
@@ -300,8 +363,21 @@ const openCitations = ref<number[]>([])
           </div>
         </div>
 
-        <!-- AI 回复（仅真实轮次） -->
-        <div v-if="turn.turnNumber > 0" class="message-wrapper">
+        <!-- 医生回复 -->
+        <div v-if="turn.turnNumber > 0 && turn.senderType === 'DOCTOR'" class="message-wrapper">
+          <div class="message-bubble doctor">
+            <div class="message-avatar">
+              <van-icon name="smile-o" size="20" />
+            </div>
+            <div class="message-content">
+              <div class="doctor-label">🩺 真人医生回复</div>
+              <div class="markdown-body" v-html="renderMarkdown(turn.assistantMessage)"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- AI 回复（仅非医生回复的真实轮次） -->
+        <div v-if="turn.turnNumber > 0 && turn.senderType !== 'DOCTOR'" class="message-wrapper">
           <div class="message-bubble assistant">
             <div class="message-avatar">
               <van-icon name="service-o" size="20" />
@@ -371,8 +447,35 @@ const openCitations = ref<number[]>([])
 
     <!-- 底部区域 -->
     <div class="chat-bottom-area">
+      <!-- 转人工医生按钮（IN_PROGRESS 且有对话时显示） -->
+      <div v-if="!isCompleted && !isHandoffState && store.turns.length > 0 && !isStreaming" class="handoff-bar">
+        <van-button
+          plain
+          type="warning"
+          size="small"
+          round
+          block
+          :loading="handingOff"
+          @click="handleHandoff"
+        >
+          🩺 转接真人医生
+        </van-button>
+      </div>
+
+      <!-- 等待医生回复提示（PENDING_DOCTOR 状态） -->
+      <div v-if="isPendingDoctor" class="handoff-waiting">
+        <van-icon name="clock-o" size="16" />
+        <span>已转接医生，请耐心等待回复...</span>
+      </div>
+
+      <!-- 医生已接诊提示（DOCTOR_ACTIVE 状态） -->
+      <div v-if="isDoctorActive" class="handoff-waiting doctor-active">
+        <van-icon name="smile-o" size="16" />
+        <span>医生已接诊，继续发送消息将与医生沟通</span>
+      </div>
+
       <!-- 结束问诊按钮（IN_PROGRESS 且有对话时显示） -->
-      <div v-if="!isCompleted && store.turns.length > 0 && !isStreaming" class="complete-bar">
+      <div v-if="!isCompleted && !isHandoffState && store.turns.length > 0 && !isStreaming" class="complete-bar">
         <van-button
           plain
           type="primary"
@@ -478,6 +581,11 @@ const openCitations = ref<number[]>([])
 .nav-status--done {
   background: var(--color-bg-alt);
   color: var(--color-text-tertiary);
+}
+
+.nav-status--handoff {
+  background: #fff3e0;
+  color: #e65100;
 }
 
 /* ============ 消息区域 ============ */
@@ -610,6 +718,23 @@ const openCitations = ref<number[]>([])
   border-bottom-left-radius: var(--radius-sm);
 }
 
+.message-bubble.doctor .message-avatar {
+  background: #4F6FBF;
+  color: #fff;
+}
+
+.message-bubble.doctor .message-content {
+  border-left: 3px solid #4F6FBF;
+  border-bottom-left-radius: var(--radius-sm);
+}
+
+.doctor-label {
+  font-size: var(--font-size-caption);
+  color: #4F6FBF;
+  font-weight: var(--font-weight-semibold);
+  margin-bottom: 6px;
+}
+
 /* ============ Markdown ============ */
 .markdown-body {
   font-size: var(--font-size-body);
@@ -680,6 +805,26 @@ const openCitations = ref<number[]>([])
 
 .complete-bar {
   padding: var(--spacing-sm) var(--spacing-md);
+}
+
+.handoff-bar {
+  padding: var(--spacing-sm) var(--spacing-md);
+}
+
+.handoff-waiting {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: var(--spacing-sm) var(--spacing-md);
+  font-size: var(--font-size-caption);
+  color: #e65100;
+  background: #fff3e0;
+}
+
+.handoff-waiting.doctor-active {
+  color: var(--color-primary-dark);
+  background: var(--color-primary-light);
 }
 
 .rating-entry {

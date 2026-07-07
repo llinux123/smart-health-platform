@@ -116,6 +116,17 @@ public class SessionManagerImpl implements SessionManager {
         sessionMapper.togglePin(session.getId());
     }
 
+    @Override
+    @Transactional
+    public void handoffSession(String sessionSn, Long patientId, String reason) {
+        ConsultationSession session = sessionAccessor.findAndValidate(sessionSn, patientId);
+        if (!SessionStatus.isInProgress(session.getStatus())) {
+            throw new BusinessException("当前会话状态不允许转诊，仅进行中的AI对话可转诊");
+        }
+        sessionMapper.updateStatus(session.getId(), SessionStatus.PENDING_DOCTOR);
+        log.info("患者发起转诊, sessionSn={}, patientId={}, reason={}", sessionSn, patientId, reason);
+    }
+
     // ========== 私有辅助方法 ==========
 
     private String generateSessionSn() {
@@ -132,6 +143,7 @@ public class SessionManagerImpl implements SessionManager {
                 .userMessage(turn.getUserMessage())
                 .assistantMessage(turn.getAssistantMessage())
                 .citations(null)
+                .senderType(turn.getSenderType())
                 .createTime(turn.getCreateTime())
                 .build();
     }

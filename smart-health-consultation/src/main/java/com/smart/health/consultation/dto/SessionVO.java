@@ -53,4 +53,10 @@ public class SessionVO {
 
     @Schema(description = "是否已评分")
     private Boolean hasRating;
+
+    @Schema(description = "指配医生ID")
+    private Long assignedDoctorId;
+
+    @Schema(description = "指配医生姓名")
+    private String assignedDoctorName;
 }

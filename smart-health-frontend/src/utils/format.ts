@@ -68,6 +68,8 @@ export function getShiftName(shift: number): string {
 
 const CONSULTATION_STATUS_MAP: Record<string, StatusInfo> = {
   IN_PROGRESS: { text: '问诊中', color: 'primary' },
+  PENDING_DOCTOR: { text: '待接诊', color: 'warning' },
+  DOCTOR_ACTIVE: { text: '医生已接诊', color: 'primary' },
   COMPLETED: { text: '已结束', color: 'default' }
 }
 

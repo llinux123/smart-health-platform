@@ -43,4 +43,10 @@ public interface SessionManager {
      * 置顶/取消置顶切换
      */
     void togglePin(String sessionSn, Long patientId);
+
+    /**
+     * 转接真人医生（患者发起）
+     * 将 IN_PROGRESS 会话状态变更为 PENDING_DOCTOR
+     */
+    void handoffSession(String sessionSn, Long patientId, String reason);
 }
