@@ -34,51 +34,42 @@ a:hover {
 }
 
 /* ============================================
-   Animations
+   Animations — 生命体征系列
    ============================================ */
 
-/* 生命脉冲 - 签名动效 */
-@keyframes pulse-ring {
-  0% {
-    transform: scale(0.95);
-    opacity: 0.7;
-  }
-  50% {
-    transform: scale(1.08);
-    opacity: 0.3;
-  }
-  100% {
-    transform: scale(0.95);
-    opacity: 0.7;
-  }
-}
-
-@keyframes pulse-dot {
-  0%, 100% {
-    transform: scale(1);
-    opacity: 1;
-  }
-  50% {
-    transform: scale(1.15);
-    opacity: 0.8;
-  }
-}
-
-/* 生长曲线——签名动效 */
-@keyframes draw-growth {
+/* 监护仪波形——签名动效 */
+@keyframes draw-waveform {
   from {
-    stroke-dashoffset: 520;
+    stroke-dashoffset: 800;
   }
   to {
     stroke-dashoffset: 0;
   }
 }
 
-/* 渐入动画 */
+/* 脉搏光点——沿波形移动 */
+@keyframes pulse-trace {
+  0% {
+    offset-distance: 0%;
+    opacity: 0;
+  }
+  10% {
+    opacity: 1;
+  }
+  90% {
+    opacity: 1;
+  }
+  100% {
+    offset-distance: 100%;
+    opacity: 0;
+  }
+}
+
+/* 渐入 */
 @keyframes fade-in {
   from {
     opacity: 0;
-    transform: translateY(12px);
+    transform: translateY(8px);
   }
   to {
     opacity: 1;
@@ -89,7 +80,7 @@ a:hover {
 @keyframes fade-in-up {
   from {
     opacity: 0;
-    transform: translateY(24px);
+    transform: translateY(20px);
   }
   to {
     opacity: 1;
@@ -100,7 +91,7 @@ a:hover {
 @keyframes fade-in-down {
   from {
     opacity: 0;
-    transform: translateY(-12px);
+    transform: translateY(-8px);
   }
   to {
     opacity: 1;
@@ -111,7 +102,7 @@ a:hover {
 @keyframes scale-in {
   from {
     opacity: 0;
-    transform: scale(0.92);
+    transform: scale(0.94);
   }
   to {
     opacity: 1;
@@ -119,33 +110,13 @@ a:hover {
   }
 }
 
-/* 滑动动画 */
-@keyframes slide-up {
-  from {
-    transform: translateY(100%);
-  }
-  to {
-    transform: translateY(0);
-  }
-}
-
-/* 骨架屏闪烁 */
+/* 骨架屏 */
 @keyframes shimmer {
   0% {
     background-position: -200% 0;
   }
   100% {
     background-position: 200% 0;
-  }
-}
-
-/* 浮动悬浮 */
-@keyframes float {
-  0%, 100% {
-    transform: translateY(0px);
-  }
-  50% {
-    transform: translateY(-6px);
   }
 }
 
@@ -159,12 +130,12 @@ a:hover {
 
 .fade-slide-enter-from {
   opacity: 0;
-  transform: translateX(30px);
+  transform: translateX(20px);
 }
 
 .fade-slide-leave-to {
   opacity: 0;
-  transform: translateX(-30px);
+  transform: translateX(-20px);
 }
 
 /* ============================================
@@ -181,35 +152,24 @@ a:hover {
 }
 
 /* ============================================
-   Card 通用样式
+   Card 通用样式 — 以边框替代阴影
    ============================================ */
 .card {
   background: var(--color-card);
+  border: 1px solid var(--color-card-border);
   border-radius: var(--radius-md);
-  box-shadow: var(--shadow-card);
   padding: var(--spacing-md);
   margin-bottom: var(--spacing-md);
-  transition: transform var(--transition-fast), box-shadow var(--transition-fast);
+  transition: border-color var(--transition-fast), transform var(--transition-fast);
 }
 
 .card:active {
-  transform: scale(0.99);
+  transform: scale(0.985);
 }
 
 .card-elevated {
-  box-shadow: var(--shadow-lg);
-}
-
-/* ============================================
-   Glass Card 毛玻璃卡片
-   ============================================ */
-.glass-card {
-  background: var(--glass-bg);
-  backdrop-filter: var(--glass-blur);
-  -webkit-backdrop-filter: var(--glass-blur);
-  border: 1px solid var(--glass-border);
-  border-radius: var(--radius-lg);
-  box-shadow: var(--glass-shadow);
+  box-shadow: var(--shadow-md);
+  border-color: transparent;
 }
 
 /* ============================================
@@ -227,6 +187,7 @@ a:hover {
   font-weight: var(--font-weight-semibold);
   color: var(--color-text);
   line-height: var(--line-height-tight);
+  letter-spacing: var(--letter-spacing-tight);
 }
 
 .section-more {
@@ -252,8 +213,8 @@ a:hover {
 }
 
 .badge-warm {
-  background: var(--color-warm-light);
-  color: var(--color-warm);
+  background: var(--color-signal-light);
+  color: var(--color-signal);
 }
 
 .badge-success {
@@ -291,6 +252,7 @@ a:hover {
   font-weight: var(--font-weight-bold);
   color: var(--color-text);
   line-height: var(--line-height-tight);
+  font-variant-numeric: tabular-nums;
 }
 
 .stat-label {
@@ -322,9 +284,9 @@ a:hover {
 .skeleton {
   background: linear-gradient(
     90deg,
-    var(--color-card-border) 25%,
+    var(--color-bg-alt) 25%,
     #E5E7EB 50%,
-    var(--color-card-border) 75%
+    var(--color-bg-alt) 75%
   );
   background-size: 200% 100%;
   animation: shimmer 1.5s infinite;
@@ -344,7 +306,7 @@ a:hover {
 .text-center { text-align: center; }
 .text-right { text-align: right; }
 .text-primary { color: var(--color-primary); }
-.text-accent { color: var(--color-accent); }
+.text-accent { color: var(--color-signal); }
 .text-secondary { color: var(--color-text-secondary); }
 
 .mt-4 { margin-top: 4px; }

@@ -2,9 +2,17 @@
   <div class="login-page">
     <div class="login-header">
       <div class="login-decoration">
-        <svg class="login-growth-line" viewBox="0 0 360 24" fill="none" preserveAspectRatio="none">
-          <path d="M0,16 C36,16 54,4 90,4 C126,4 144,18 180,18 C216,18 234,6 270,6 C306,6 324,14 360,14"
-                stroke="var(--color-primary)" stroke-width="1.4" stroke-linecap="round"/>
+        <svg class="login-wave" viewBox="0 0 360 40" fill="none" preserveAspectRatio="none">
+          <defs>
+            <linearGradient id="loginWaveGrad" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stop-color="var(--color-primary)" stop-opacity="0.1" />
+              <stop offset="100%" stop-color="var(--color-primary)" stop-opacity="0.01" />
+            </linearGradient>
+          </defs>
+          <path d="M0,26 Q8,26 16,20 Q24,14 32,20 Q40,26 48,18 Q56,10 64,18 Q72,26 80,14 Q88,2 96,14 Q104,26 112,20 Q120,14 128,22 Q136,30 144,22 Q152,14 160,20 Q168,26 176,18 Q184,10 192,22 Q200,34 208,22 Q216,10 224,18 Q232,26 240,18 Q248,10 256,20 Q264,30 272,20 Q280,10 288,18 Q296,26 304,20 Q312,14 320,20 Q328,26 336,18 Q344,10 360,18"
+                stroke="url(#loginWaveGrad)" stroke-width="40" stroke-linecap="round" opacity="0.5" />
+          <path class="login-wave-line" d="M0,20 Q8,20 16,16 Q24,12 32,16 Q40,20 48,14 Q56,8 64,14 Q72,20 80,10 Q88,0 96,10 Q104,20 112,16 Q120,12 128,18 Q136,24 144,18 Q152,12 160,16 Q168,20 176,14 Q184,8 192,18 Q200,28 208,18 Q216,8 224,14 Q232,20 240,14 Q248,8 256,16 Q264,24 272,16 Q280,8 288,14 Q296,20 304,16 Q312,12 320,16 Q328,20 336,14 Q344,8 360,14"
+                fill="none" stroke="var(--color-primary)" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" />
         </svg>
       </div>
       <div class="login-brand">
@@ -358,21 +366,22 @@ onUnmounted(() => {
 }
 
 .login-decoration {
-  height: 24px;
+  height: 40px;
   display: flex;
   align-items: flex-end;
   padding: 0 24px;
   margin-bottom: 8px;
 }
 
-.login-growth-line {
+.login-wave {
   width: 100%;
-  height: 24px;
-  color: var(--color-primary);
-  stroke-dasharray: 420;
-  stroke-dashoffset: 420;
-  animation: draw-growth 2s ease-out 0.1s forwards;
-  opacity: 0.5;
+  height: 40px;
+}
+
+.login-wave-line {
+  stroke-dasharray: 800;
+  stroke-dashoffset: 800;
+  animation: draw-waveform 1.8s ease-out 0.1s forwards;
 }
 
 .login-brand {
@@ -416,9 +425,8 @@ onUnmounted(() => {
 .login-card {
   background: var(--color-card);
   border: 1px solid var(--color-card-border);
-  border-radius: var(--radius-xl);
+  border-radius: var(--radius-lg);
   padding: 0 20px 24px;
-  box-shadow: var(--shadow-lg);
 }
 
 /* ============ Role Tabs ============ */
@@ -556,7 +564,6 @@ onUnmounted(() => {
   height: 48px;
   font-size: 16px;
   font-weight: var(--font-weight-semibold);
-  box-shadow: var(--shadow-warm);
 }
 
 /* ============ Third-Party Login ============ */
@@ -608,9 +615,7 @@ onUnmounted(() => {
 }
 
 /* ============ Keyframes ============ */
-@keyframes draw-growth {
-  to { stroke-dashoffset: 0; }
-}
+/* draw-waveform 定义在 global.css 中 */
 
 @keyframes float {
   0%, 100% { transform: translateY(0); }

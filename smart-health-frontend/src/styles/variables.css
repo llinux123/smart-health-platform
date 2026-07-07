@@ -1,60 +1,64 @@
 :root {
   /*
    * ============================================
-   *  设计概念：温润精准（Warm Precision）
-   *  —— 医疗科技产品的人性化表达
-   *  色彩灵感：清晨阳光穿过树叶的质感
+   *  设计概念：生命体征（Vital Sign）
+   *  —— 医疗监控的精确与生命本身的韵律
+   *  色彩灵感：监护仪屏幕的冷峻 × 草药的生气
    * ============================================
    */
 
   /* === 色彩系统 === */
-  --color-primary: #1B7058;
-  --color-primary-light: #E6F2EE;
-  --color-primary-dark: #145A45;
+  --color-primary: #0F766E;
+  --color-primary-light: #F0FDFA;
+  --color-primary-dark: #115E59;
 
-  --color-warm: #D4866F;
-  --color-warm-light: #F5E6E0;
+  --color-signal: #E0513A;
+  --color-signal-light: #FEF2F2;
 
-  --color-accent: #D46B6B;
+  --color-success: #059669;
+  --color-warning: #D97706;
+  --color-danger: #DC2626;
 
-  --color-success: #4A9E6E;
-  --color-warning: #D4956B;
-  --color-danger: #D46B6B;
+  --color-text: #1D2125;
+  --color-text-secondary: #6B7280;
+  --color-text-tertiary: #9CA3AF;
 
-  --color-text: #1A1D1C;
-  --color-text-secondary: #6B7670;
-  --color-text-tertiary: #9AA39F;
-
-  --color-bg: #FBF9F6;
-  --color-bg-alt: #F5F0EB;
+  --color-bg: #F8FAFB;
+  --color-bg-alt: #F3F4F6;
   --color-card: #FFFFFF;
-  --color-card-border: #EBE7E2;
-  --color-divider: #E8E4E0;
+  --color-card-border: #E5E7EB;
+  --color-divider: #F3F4F6;
+
+  /* 向后兼容：旧令牌映射到新令牌 */
+  --color-warm: var(--color-signal);
+  --color-warm-light: var(--color-signal-light);
+  --color-accent: var(--color-signal);
 
   /* === 字体 === */
   --font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif;
-  --font-mono: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+  --font-mono: 'SF Mono', 'Fira Code', 'JetBrains Mono', 'Consolas', monospace;
 
-  --font-size-title-xl: 24px;
-  --font-size-title-lg: 20px;
+  --font-size-title-xl: 28px;
+  --font-size-title-lg: 22px;
   --font-size-title: 18px;
   --font-size-card-title: 16px;
   --font-size-body: 14px;
   --font-size-caption: 12px;
-  --font-size-small: 11px;
+  --font-size-small: 10px;
 
   --font-weight-bold: 700;
   --font-weight-semibold: 600;
   --font-weight-medium: 500;
   --font-weight-regular: 400;
+  --font-weight-light: 300;
 
-  --line-height-tight: 1.25;
+  --line-height-tight: 1.2;
   --line-height-normal: 1.5;
   --line-height-relaxed: 1.7;
 
   --letter-spacing-tight: -0.02em;
   --letter-spacing-normal: 0;
-  --letter-spacing-wide: 0.02em;
+  --letter-spacing-wide: 0.04em;
 
   /* === 间距 === */
   --spacing-xs: 4px;
@@ -64,56 +68,57 @@
   --spacing-xl: 28px;
   --spacing-2xl: 40px;
 
-  /* === 圆角（更大、更柔和） === */
-  --radius-sm: 8px;
-  --radius-md: 12px;
-  --radius-lg: 16px;
-  --radius-xl: 24px;
+  /* === 圆角（克制、精确，不做 AI 式的软圆角） === */
+  --radius-xs: 4px;
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
   --radius-full: 9999px;
 
-  /* === 阴影（更轻、更暖） === */
-  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.04);
-  --shadow-md: 0 4px 8px rgba(0, 0, 0, 0.05);
-  --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.06);
-  --shadow-xl: 0 12px 32px rgba(0, 0, 0, 0.07);
-  --shadow-card: 0 2px 8px rgba(0, 0, 0, 0.04);
-  --shadow-warm: 0 4px 20px rgba(212, 134, 111, 0.15);
+  /* === 阴影（极克制：默认无阴影，仅关键层级使用） === */
+  --shadow-sm: none;
+  --shadow-md: 0 1px 3px rgba(0, 0, 0, 0.06);
+  --shadow-lg: 0 4px 12px rgba(0, 0, 0, 0.08);
+  --shadow-xl: 0 8px 24px rgba(0, 0, 0, 0.1);
+  --shadow-card: none;
+  --shadow-warm: 0 2px 8px rgba(224, 81, 58, 0.15);
 
   /* === 过渡 === */
-  --transition-fast: 0.2s ease;
-  --transition-normal: 0.3s ease;
-  --transition-slow: 0.5s cubic-bezier(0.4, 0, 0.2, 1);
-
-  /* === 毛玻璃 === */
-  --glass-bg: rgba(255, 255, 255, 0.75);
-  --glass-border: rgba(255, 255, 255, 0.3);
-  --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.06);
-  --glass-blur: blur(16px);
+  --transition-fast: 0.15s ease;
+  --transition-normal: 0.25s ease;
+  --transition-slow: 0.4s cubic-bezier(0.4, 0, 0.2, 1);
 
   /* === Vant 主题覆盖 === */
   --van-primary-color: var(--color-primary);
   --van-success-color: var(--color-success);
-  --van-warning-color: var(--color-warm);
+  --van-warning-color: var(--color-warning);
   --van-danger-color: var(--color-danger);
   --van-text-color: var(--color-text);
   --van-text-color-2: var(--color-text-secondary);
   --van-text-color-3: var(--color-text-tertiary);
-  --van-border-color: var(--color-divider);
+  --van-border-color: var(--color-card-border);
   --van-background: var(--color-bg);
   --van-background-2: var(--color-card);
   --van-cell-background: var(--color-card);
   --van-cell-group-background: transparent;
-  --van-nav-bar-background: transparent;
+  --van-nav-bar-background: var(--color-card);
   --van-nav-bar-title-text-color: var(--color-text);
   --van-nav-bar-icon-color: var(--color-text);
-  --van-tabbar-background: var(--glass-bg);
-  --van-tabbar-item-active-color: var(--color-warm);
+  --van-tabbar-background: var(--color-card);
+  --van-tabbar-item-active-color: var(--color-primary);
   --van-tabbar-item-text-color: var(--color-text-secondary);
   --van-button-primary-background: var(--color-primary);
   --van-button-primary-border-color: var(--color-primary);
+  --van-button-danger-background: var(--color-signal);
+  --van-button-danger-border-color: var(--color-signal);
   --van-field-background: var(--color-card);
   --van-empty-description-color: var(--color-text-secondary);
   --van-dropdown-menu-background: var(--color-card);
   --van-dropdown-menu-title-text-color: var(--color-text);
   --van-calendar-popup-height: 70%;
+  --van-tag-primary-color: var(--color-primary);
+  --van-tag-danger-color: var(--color-signal);
+  --van-tag-success-color: var(--color-success);
+  --van-tag-warning-color: var(--color-warning);
 }

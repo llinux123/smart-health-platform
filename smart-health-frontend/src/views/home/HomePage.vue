@@ -1,45 +1,54 @@
 <template>
   <div class="home-page">
-    <!-- 生长曲线签名区 -->
+    <!-- 生命体征波形 Hero -->
     <div class="hero">
-      <div class="hero-decoration">
-        <svg class="growth-line" viewBox="0 0 360 28" fill="none" preserveAspectRatio="none">
-          <path d="M0,20 C36,20 54,4 90,4 C126,4 144,22 180,22 C216,22 234,6 270,6 C306,6 324,18 360,18"
-                stroke="var(--color-primary)" stroke-width="1.4" stroke-linecap="round"/>
+      <div class="hero-wave">
+        <svg class="waveform" viewBox="0 0 360 56" fill="none" preserveAspectRatio="none">
+          <defs>
+            <linearGradient id="waveGrad" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stop-color="var(--color-primary)" stop-opacity="0.12" />
+              <stop offset="100%" stop-color="var(--color-primary)" stop-opacity="0.02" />
+            </linearGradient>
+          </defs>
+          <path d="M0,36 Q8,36 16,28 Q24,20 32,28 Q40,36 48,28 Q56,20 64,28 Q72,36 80,20 Q88,4 96,20 Q104,36 112,28 Q120,20 128,32 Q136,44 144,32 Q152,20 160,28 Q168,36 176,28 Q184,20 192,32 Q200,44 208,32 Q216,20 224,28 Q232,36 240,28 Q248,20 256,32 Q264,44 272,28 Q280,12 288,24 Q296,36 304,28 Q312,20 320,28 Q328,36 336,28 Q344,20 360,28"
+                stroke="url(#waveGrad)" stroke-width="56" stroke-linecap="round" opacity="0.6" />
+          <path class="waveform-line" d="M0,28 Q8,28 16,24 Q24,20 32,24 Q40,28 48,24 Q56,20 64,24 Q72,28 80,18 Q88,8 96,18 Q104,28 112,24 Q120,20 128,26 Q136,32 144,26 Q152,20 160,24 Q168,28 176,24 Q184,20 192,26 Q200,32 208,26 Q216,20 224,24 Q232,28 240,24 Q248,20 256,26 Q264,32 272,24 Q280,16 288,22 Q296,28 304,24 Q312,20 320,24 Q328,28 336,24 Q344,20 360,24"
+                fill="none" stroke="var(--color-primary)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" />
+          <circle class="waveform-dot" cx="96" cy="18" r="3.5" fill="var(--color-signal)" opacity="0" />
         </svg>
       </div>
       <div class="hero-body">
         <div class="hero-top">
           <div class="hero-avatar hero-avatar--clickable" @click.stop="toggleAvatarPanel">
-            <van-image round width="48" height="48" :src="'https://fastly.jsdelivr.net/npm/@vant/assets/cat.jpeg'" />
+            <van-image round width="44" height="44" :src="'https://fastly.jsdelivr.net/npm/@vant/assets/cat.jpeg'" />
             <svg class="hero-avatar-arrow" :class="{ 'hero-avatar-arrow--open': showAvatarPanel }" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
               <polyline points="6 9 12 15 18 9" />
             </svg>
           </div>
           <div class="hero-text">
-            <h1 class="hero-greeting">你好，{{ userStore.realName || '用户' }}</h1>
-            <p class="hero-prompt">今天感觉如何？让我来帮您</p>
+            <h1 class="hero-greeting">{{ userStore.realName || '用户' }}，下午好</h1>
+            <p class="hero-prompt">需要帮您做些什么？</p>
           </div>
         </div>
         <div v-if="userStore.isPatient" class="hero-stats">
           <div class="hero-stat">
             <span class="hero-stat-value">{{ stats.consultCount }}</span>
-            <span class="hero-stat-label">问诊</span>
+            <span class="hero-stat-label">问诊次数</span>
           </div>
           <div class="hero-stat-divider"></div>
           <div class="hero-stat">
             <span class="hero-stat-value">{{ stats.appointmentCount }}</span>
-            <span class="hero-stat-label">挂号</span>
+            <span class="hero-stat-label">挂号记录</span>
           </div>
           <div class="hero-stat-divider"></div>
           <div class="hero-stat">
             <span class="hero-stat-value">{{ stats.prescriptionCount }}</span>
-            <span class="hero-stat-label">处方</span>
+            <span class="hero-stat-label">处方数量</span>
           </div>
         </div>
       </div>
 
-      <!-- 用户浮动面板（B站风格） -->
+      <!-- 用户浮动面板 -->
       <transition name="panel">
         <div v-if="showAvatarPanel" class="avatar-panel">
           <div class="avatar-panel-arrow"></div>
@@ -78,11 +87,11 @@
           v-for="(item, index) in menuItems"
           :key="item.path"
           class="feature-card"
-          :style="{ animationDelay: `${0.3 + index * 0.08}s` }"
+          :style="{ animationDelay: `${0.25 + index * 0.06}s` }"
           @click="$router.push(item.path)"
         >
           <div class="feature-icon">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
               <path v-if="item.icon === 'ai'" d="M12 2L2 7L12 12L22 7L12 2Z" />
               <path v-if="item.icon === 'ai'" d="M2 17L12 22L22 17" />
               <path v-if="item.icon === 'ai'" d="M2 12L12 17L22 12" />
@@ -112,7 +121,7 @@
         <div class="list-card">
           <div class="list-item" @click="$router.push('/registration/orders')">
             <div class="list-item-icon list-icon-orders">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <path d="M9 5H7C6.46957 5 5.96086 5.21071 5.58579 5.58579C5.21071 5.96086 5 6.46957 5 7V19C5 19.5304 5.21071 20.0391 5.58579 20.4142C5.96086 20.7893 6.46957 21 7 21H17C17.5304 21 18.0391 20.7893 18.4142 20.4142C18.7893 20.0391 19 19.5304 19 19V7C19 6.46957 18.7893 5.96086 18.4142 5.58579C18.0391 5.21071 17.5304 5 17 5H15" />
                 <rect x="9" y="3" width="6" height="4" rx="1" />
               </svg>
@@ -128,7 +137,7 @@
           <div class="list-divider"></div>
           <div class="list-item" @click="$router.push('/prescriptions')">
             <div class="list-item-icon list-icon-prescription">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <path d="M4 19.5C4 18.837 4.26339 18.2011 4.73223 17.7322C5.20107 17.2634 5.83696 17 6.5 17H20" />
                 <path d="M6.5 2H20V20C20 20.5304 19.7893 21.0391 19.4142 21.4142C19.0391 21.7893 18.5304 22 18 22H6.5C5.83696 22 5.20107 21.7366 4.73223 21.2678C4.26339 20.7989 4 20.163 4 19.5V4.5C4 3.83696 4.26339 3.20107 4.73223 2.73223C5.20107 2.26339 5.83696 2 6.5 2Z" />
                 <line x1="8" y1="7" x2="16" y2="7" />
@@ -147,7 +156,7 @@
           <div class="list-divider"></div>
           <div class="list-item" @click="$router.push('/consultation')">
             <div class="list-item-icon list-icon-chat">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <path d="M21 15C21 15.5304 20.7893 16.0391 20.4142 16.4142C20.0391 16.7893 19.5304 17 19 17H7L3 21V5C3 4.46957 3.21071 3.96086 3.58579 3.58579C3.96086 3.21071 4.46957 3 5 3H19C19.5304 3 20.0391 3.21071 20.4142 3.58579C20.7893 3.96086 21 4.46957 21 5V15Z" />
               </svg>
             </div>
@@ -162,7 +171,7 @@
         </div>
       </section>
 
-      <!-- 工作台（按角色动态显示） -->
+      <!-- 工作台 -->
       <section v-if="adminMenuItems.length > 0" class="list-section">
         <h2 class="list-section-label">工作台</h2>
         <div class="list-card">
@@ -170,7 +179,7 @@
             <div v-if="idx > 0" class="list-divider"></div>
             <div class="list-item" @click="$router.push(item.path)">
               <div class="list-item-icon" :class="item.iconClass">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                   <template v-if="item.icon === 'schedule'">
                     <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
                     <line x1="16" y1="2" x2="16" y2="6" />
@@ -330,29 +339,35 @@ async function handleLogout() {
 </script>
 
 <style scoped>
-/* ============ Hero ============ */
+/* ============ Hero — 生命体征波形 ============ */
 .hero {
   position: relative;
-  background: var(--color-primary-light);
+  background: var(--color-card);
+  border-bottom: 1px solid var(--color-card-border);
   padding: 0 0 24px;
   overflow: hidden;
 }
 
-.hero-decoration {
-  height: 28px;
+.hero-wave {
+  height: 56px;
   display: flex;
   align-items: flex-end;
-  padding: 0 20px;
+  margin-bottom: 4px;
 }
 
-.growth-line {
+.waveform {
   width: 100%;
-  height: 28px;
-  color: var(--color-primary);
-  stroke-dasharray: 520;
-  stroke-dashoffset: 520;
-  animation: draw-growth 2.2s ease-out 0.1s forwards;
-  opacity: 0.55;
+  height: 56px;
+}
+
+.waveform-line {
+  stroke-dasharray: 800;
+  stroke-dashoffset: 800;
+  animation: draw-waveform 2s ease-out 0.15s forwards;
+}
+
+.waveform-dot {
+  animation: pulse-trace 2.5s ease-in-out 0.5s forwards;
 }
 
 .hero-body {
@@ -362,7 +377,7 @@ async function handleLogout() {
 .hero-top {
   display: flex;
   align-items: center;
-  gap: 14px;
+  gap: 12px;
   margin-bottom: 20px;
 }
 
@@ -377,7 +392,7 @@ async function handleLogout() {
 }
 
 .hero-avatar--clickable:active {
-  transform: scale(0.92);
+  transform: scale(0.94);
 }
 
 .hero-avatar-arrow {
@@ -397,26 +412,27 @@ async function handleLogout() {
 }
 
 .hero-greeting {
-  font-size: 20px;
-  font-weight: var(--font-weight-bold);
-  color: var(--color-primary-dark);
+  font-size: 22px;
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text);
   line-height: 1.25;
-  margin-bottom: 3px;
+  letter-spacing: var(--letter-spacing-tight);
+  margin-bottom: 4px;
 }
 
 .hero-prompt {
   font-size: 13px;
   color: var(--color-text-secondary);
-  font-weight: var(--font-weight-medium);
+  font-weight: var(--font-weight-regular);
 }
 
 .hero-stats {
   display: flex;
   align-items: center;
-  background: var(--color-card);
-  border-radius: var(--radius-lg);
-  padding: 14px 8px;
-  box-shadow: var(--shadow-sm);
+  background: var(--color-bg);
+  border: 1px solid var(--color-card-border);
+  border-radius: var(--radius-md);
+  padding: 14px 4px;
 }
 
 .hero-stat {
@@ -426,72 +442,74 @@ async function handleLogout() {
 
 .hero-stat-value {
   display: block;
-  font-size: 20px;
+  font-size: 22px;
   font-weight: var(--font-weight-bold);
   color: var(--color-primary);
-  line-height: 1.2;
+  line-height: 1.15;
+  font-variant-numeric: tabular-nums;
 }
 
 .hero-stat-label {
   display: block;
-  font-size: 12px;
+  font-size: 11px;
   color: var(--color-text-secondary);
-  margin-top: 2px;
+  margin-top: 3px;
 }
 
 .hero-stat-divider {
   width: 1px;
-  height: 28px;
-  background: var(--color-divider);
+  height: 24px;
+  background: var(--color-card-border);
 }
 
 /* ============ Content ============ */
 .content {
-  padding: 20px 16px 60px;
+  padding: 20px 20px 60px;
 }
 
 /* ============ Feature Grid ============ */
 .feature-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 12px;
+  gap: 10px;
   margin-bottom: 24px;
 }
 
 .feature-card {
   background: var(--color-card);
   border: 1px solid var(--color-card-border);
-  border-radius: var(--radius-lg);
-  padding: 20px 16px;
+  border-radius: var(--radius-md);
+  padding: 18px 16px;
   cursor: pointer;
-  animation: fade-in-up 0.5s ease backwards;
-  transition: transform var(--transition-fast), box-shadow var(--transition-fast);
+  animation: fade-in-up 0.45s ease backwards;
+  transition: border-color var(--transition-fast), transform var(--transition-fast);
 }
 
 .feature-card:hover {
-  box-shadow: var(--shadow-md);
+  border-color: var(--color-primary);
 }
 
 .feature-card:active {
   transform: scale(0.97);
+  background: var(--color-bg);
 }
 
 .feature-icon {
-  width: 42px;
-  height: 42px;
+  width: 38px;
+  height: 38px;
   border-radius: var(--radius-sm);
   background: var(--color-primary-light);
   color: var(--color-primary);
   display: flex;
   align-items: center;
   justify-content: center;
-  margin-bottom: 12px;
+  margin-bottom: 10px;
 }
 
 .feature-info {
   display: flex;
   flex-direction: column;
-  gap: 3px;
+  gap: 2px;
 }
 
 .feature-title {
@@ -513,17 +531,19 @@ async function handleLogout() {
 }
 
 .list-section-label {
-  font-size: 15px;
+  font-size: 14px;
   font-weight: var(--font-weight-semibold);
-  color: var(--color-text);
+  color: var(--color-text-secondary);
   margin-bottom: 10px;
-  padding: 0 4px;
+  padding: 0 2px;
+  letter-spacing: var(--letter-spacing-wide);
+  text-transform: uppercase;
 }
 
 .list-card {
   background: var(--color-card);
   border: 1px solid var(--color-card-border);
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-md);
   overflow: hidden;
 }
 
@@ -541,8 +561,8 @@ async function handleLogout() {
 }
 
 .list-item-icon {
-  width: 36px;
-  height: 36px;
+  width: 34px;
+  height: 34px;
   border-radius: var(--radius-sm);
   display: flex;
   align-items: center;
@@ -551,8 +571,8 @@ async function handleLogout() {
 }
 
 .list-icon-orders {
-  background: var(--color-warm-light);
-  color: var(--color-warm);
+  background: #FEF2F2;
+  color: var(--color-signal);
 }
 
 .list-icon-prescription {
@@ -610,7 +630,7 @@ async function handleLogout() {
   background: var(--color-divider);
 }
 
-/* ============ Avatar Panel (B站风格) ============ */
+/* ============ Avatar Panel ============ */
 .avatar-panel-backdrop {
   position: fixed;
   inset: 0;
@@ -620,13 +640,13 @@ async function handleLogout() {
 .avatar-panel {
   position: relative;
   z-index: 100;
-  margin: -12px 20px 0;
+  margin: -8px 20px 0;
 }
 
 .avatar-panel-arrow {
   width: 12px;
   height: 12px;
-  margin-left: 16px;
+  margin-left: 14px;
   margin-bottom: -1px;
   background: var(--color-card);
   border-left: 1px solid var(--color-card-border);
@@ -638,17 +658,17 @@ async function handleLogout() {
 .avatar-panel-body {
   background: var(--color-card);
   border: 1px solid var(--color-card-border);
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-md);
   box-shadow: var(--shadow-lg);
-  padding: 16px;
-  animation: panel-in 0.2s ease;
+  padding: 14px;
+  animation: panel-in 0.18s ease;
 }
 
 .avatar-panel-user {
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding-bottom: 12px;
+  gap: 10px;
+  padding-bottom: 10px;
 }
 
 .avatar-panel-user-info {
@@ -659,7 +679,7 @@ async function handleLogout() {
 }
 
 .avatar-panel-name {
-  font-size: 16px;
+  font-size: 15px;
   font-weight: var(--font-weight-semibold);
   color: var(--color-text);
   overflow: hidden;
@@ -679,14 +699,14 @@ async function handleLogout() {
 }
 
 .avatar-panel-actions {
-  padding-top: 4px;
+  padding-top: 2px;
 }
 
 .avatar-panel-action {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 10px 8px;
+  padding: 10px 6px;
   border-radius: var(--radius-sm);
   cursor: pointer;
   transition: background var(--transition-fast);
@@ -700,17 +720,17 @@ async function handleLogout() {
 
 /* 面板动画 */
 .panel-enter-active {
-  animation: panel-in 0.2s ease;
+  animation: panel-in 0.18s ease;
 }
 
 .panel-leave-active {
-  animation: panel-in 0.15s ease reverse;
+  animation: panel-in 0.12s ease reverse;
 }
 
 @keyframes panel-in {
   from {
     opacity: 0;
-    transform: translateY(-8px);
+    transform: translateY(-6px);
   }
   to {
     opacity: 1;
@@ -720,7 +740,7 @@ async function handleLogout() {
 
 .fade-enter-active,
 .fade-leave-active {
-  transition: opacity 0.15s ease;
+  transition: opacity 0.12s ease;
 }
 
 .fade-enter-from,

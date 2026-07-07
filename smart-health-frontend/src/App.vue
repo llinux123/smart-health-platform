@@ -1,10 +1,6 @@
 <template>
   <div id="app">
-    <router-view v-slot="{ Component }">
-      <transition name="fade-slide" mode="out-in">
-        <component :is="Component" />
-      </transition>
-    </router-view>
+    <router-view :key="route.fullPath" />
     <AppTabBar v-if="showTabBar" />
   </div>
 </template>

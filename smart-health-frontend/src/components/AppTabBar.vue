@@ -1,5 +1,5 @@
 <template>
-  <van-tabbar v-model="active" route class="app-tabbar" active-color="var(--color-warm)" inactive-color="var(--color-text-tertiary)">
+  <van-tabbar v-model="active" route class="app-tabbar" active-color="var(--color-primary)" inactive-color="var(--color-text-tertiary)">
     <van-tabbar-item to="/home">
       <span class="tab-icon-wrapper">
         <svg class="tab-icon" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -13,38 +13,6 @@
     </van-tabbar-item>
     <!-- 患者导航 -->
     <template v-if="userStore.isPatient || !userStore.role">
-      <van-tabbar-item to="/consultation">
-        <span class="tab-icon-wrapper">
-          <svg class="tab-icon" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M21 15C21 15.5304 20.7893 16.0391 20.4142 16.4142C20.0391 16.7893 19.5304 17 19 17H7L3 21V5C3 4.46957 3.21071 3.96086 3.58579 3.58579C3.96086 3.21071 4.46957 3 5 3H19C19.5304 3 20.0391 3.21071 20.4142 3.58579C20.7893 3.96086 21 4.46957 21 5V15Z" />
-          </svg>
-        </span>
-        问诊
-      </van-tabbar-item>
-      <van-tabbar-item to="/registration/orders">
-        <span class="tab-icon-wrapper">
-          <svg class="tab-icon" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M9 5H7C6.46957 5 5.96086 5.21071 5.58579 5.58579C5.21071 5.96086 5 6.46957 5 7V19C5 19.5304 5.21071 20.0391 5.58579 20.4142C5.96086 20.7893 6.46957 21 7 21H17C17.5304 21 18.0391 20.7893 18.4142 20.4142C18.7893 20.0391 19 19.5304 19 19V7C19 6.46957 18.7893 5.96086 18.4142 5.58579C18.0391 5.21071 17.5304 5 17 5H15" />
-            <rect x="9" y="3" width="6" height="4" rx="1" />
-            <line x1="9" y1="12" x2="15" y2="12" />
-            <line x1="9" y1="16" x2="13" y2="16" />
-          </svg>
-        </span>
-        订单
-      </van-tabbar-item>
-      <van-tabbar-item to="/prescriptions">
-        <span class="tab-icon-wrapper">
-          <svg class="tab-icon" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M20 21V7C20 6.46957 19.7893 5.96086 19.4142 5.58579C19.0391 5.21071 18.5304 5 18 5H14" />
-            <path d="M10 5H6C5.46957 5 4.96086 5.21071 4.58579 5.58579C4.21071 5.96086 4 6.46957 4 7V21" />
-            <path d="M10 5C10 3.89543 10.8954 3 12 3C13.1046 3 14 3.89543 14 5C14 5.55228 14.4477 6 15 6H16C16.5523 6 17 6.44772 17 7V8" />
-            <line x1="8" y1="12" x2="12" y2="12" />
-            <line x1="8" y1="16" x2="14" y2="16" />
-            <line x1="8" y1="20" x2="16" y2="20" />
-          </svg>
-        </span>
-        处方
-      </van-tabbar-item>
       <van-tabbar-item to="/my">
         <span class="tab-icon-wrapper">
           <svg class="tab-icon" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -108,10 +76,7 @@ const active = ref(0)
 
 const tabMap: Record<string, number> = {
   '/home': 0,
-  '/consultation': 1,
-  '/registration/orders': 2,
-  '/prescriptions': 3,
-  '/my': 4,
+  '/my': 1,
   '/doctor/consultations': 1,
   '/admin/prescription/issue': 2,
   '/admin/prescription/review': 1,
@@ -131,10 +96,8 @@ watch(
 
 <style scoped>
 .app-tabbar {
-  backdrop-filter: var(--glass-blur);
-  -webkit-backdrop-filter: var(--glass-blur);
-  background: var(--glass-bg) !important;
-  border-top: 1px solid rgba(0, 0, 0, 0.05);
+  background: var(--color-card) !important;
+  border-top: 1px solid var(--color-card-border);
   padding-bottom: env(safe-area-inset-bottom);
 }
 

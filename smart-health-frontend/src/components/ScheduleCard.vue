@@ -96,7 +96,7 @@ defineEmits(['click', 'seckill'])
 
 .schedule-dept {
   display: inline-block;
-  background: var(--color-primary-soft);
+  background: var(--color-primary-light);
   color: var(--color-primary-dark);
   font-size: var(--font-size-caption);
   font-weight: var(--font-weight-medium);
@@ -118,7 +118,7 @@ defineEmits(['click', 'seckill'])
   width: 40px;
   height: 40px;
   border-radius: 50%;
-  background: var(--color-primary-soft);
+  background: var(--color-primary-light);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -134,7 +134,7 @@ defineEmits(['click', 'seckill'])
 .doctor-name {
   font-size: 14px;
   font-weight: var(--font-weight-semibold);
-  color: var(--color-text-primary);
+  color: var(--color-text);
 }
 
 .doctor-dept-tag {
