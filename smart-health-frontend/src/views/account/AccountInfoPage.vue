@@ -107,7 +107,9 @@
   <van-uploader v-model="avatarFileList" :after-read="onAvatarRead" ref="uploaderRef" style="display: none" />
 
   <!-- 修改用户名弹窗 -->
-  <van-dialog v-model:show="showUsernameDialog" title="修改用户名" show-cancel-button @confirm="onUsernameConfirm">
+  <van-dialog v-model:show="showUsernameDialog" title="修改用户名" show-cancel-button
+    :before-close="onUsernameBeforeClose"
+    :confirm-button-loading="usernameUpdating">
     <van-field v-model="newUsername" placeholder="请输入用户名" maxlength="20" />
   </van-dialog>
 </template>
@@ -259,25 +261,42 @@ async function onAvatarRead(items: UploaderFileListItem | UploaderFileListItem[]
 
 const showUsernameDialog = ref(false)
 const newUsername = ref('')
+const usernameUpdating = ref(false)
 
 function onUsernameClick() {
   newUsername.value = profile.value.username || ''
   showUsernameDialog.value = true
 }
 
-async function onUsernameConfirm() {
-  const name = newUsername.value.trim()
-  if (!name) {
-    showToast('用户名不能为空')
-    return
+async function onUsernameBeforeClose(action: string): Promise<boolean> {
+  if (action === 'confirm') {
+    const name = newUsername.value.trim()
+    if (!name) {
+      showToast('用户名不能为空')
+      return false
+    }
+    if (name.length < 3 || name.length > 20) {
+      showToast('用户名长度必须在3-20个字符之间')
+      return false
+    }
+    if (!/^[a-zA-Z0-9_\u4e00-\u9fa5-]+$/.test(name)) {
+      showToast('用户名仅支持中英文、数字、下划线和连字符')
+      return false
+    }
+    usernameUpdating.value = true
+    try {
+      const data = await updateUsername(name)
+      userStore.setProfile(data)
+      showToast('用户名更新成功')
+      return true
+    } catch (e: any) {
+      showToast(e.message || '用户名更新失败')
+      return false
+    } finally {
+      usernameUpdating.value = false
+    }
   }
-  try {
-    const data = await updateUsername(name)
-    userStore.setProfile(data)
-    showToast('用户名更新成功')
-  } catch (e) {
-    console.warn('[AccountInfoPage] 更新用户名失败', e)
-  }
+  return true
 }
 
 function onPhoneClick() {

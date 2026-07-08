@@ -117,7 +117,7 @@ spring:
 
 # JWT (与 user-service 共享同一密钥)
 jwt:
-  secret: ${JWT_SECRET:c21hcnQtaGVhbHRoLXBsYXRmb3JtLWp3dC1zZWNyZXQta2V5LTIwMjY=}
+  secret: ${JWT_SECRET:?JWT_SECRET is required}
 
 logging:
   level:

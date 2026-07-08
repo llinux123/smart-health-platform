@@ -35,6 +35,11 @@ public enum ResultCode {
     SMS_CODE_EXPIRED(1011, "验证码已过期"),
     SMS_SEND_FAIL(1012, "验证码发送失败"),
 
+    // 邮箱相关 1101-1199
+    EMAIL_CODE_ERROR(1101, "邮箱验证码错误"),
+    EMAIL_CODE_EXPIRED(1102, "邮箱验证码已过期"),
+    EMAIL_SEND_FAIL(1103, "邮箱验证码发送失败"),
+
     // 挂号相关 2001-2999
     SCHEDULE_NOT_FOUND(2001, "排班信息不存在"),
     DOCTOR_NOT_FOUND(2005, "医生不存在"),

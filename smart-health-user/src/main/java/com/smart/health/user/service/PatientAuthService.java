@@ -8,6 +8,7 @@ import com.smart.health.user.dto.*;
 import com.smart.health.user.entity.Patient;
 import com.smart.health.user.mapper.PatientMapper;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -27,6 +28,7 @@ import java.util.UUID;
 /**
  * 患者认证服务
  */
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class PatientAuthService {
@@ -35,12 +37,18 @@ public class PatientAuthService {
     private final PasswordEncoder passwordEncoder;
     private final JwtTokenProvider jwtTokenProvider;
     private final SmsService smsService;
+    private final EmailService emailService;
 
     @Value("${avatar.upload-path:./avatars/}")
     private String avatarUploadPath;
 
+    @Value("${identity.skip-verification-enabled:false}")
+    private boolean skipVerificationEnabled;
+
     private static final String RANDOM_PASSWORD_CHARS = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
     private static final int RANDOM_PASSWORD_LENGTH = 12;
+
+    private static final String USERNAME_PATTERN = "^[a-zA-Z0-9_\\u4e00-\\u9fa5-]{3,20}$";
 
     /**
      * 患者注册
@@ -112,6 +120,10 @@ public class PatientAuthService {
         if (patient == null) {
             throw new BusinessException(ResultCode.USER_NOT_FOUND);
         }
+        return toProfileResponse(patient);
+    }
+
+    private ProfileResponse toProfileResponse(Patient patient) {
         return ProfileResponse.builder()
                 .id(patient.getId())
                 .username(patient.getUsername())
@@ -167,16 +179,16 @@ public class PatientAuthService {
             // 生成Token
             String token = jwtTokenProvider.generatePatientToken(patient.getId(), patient.getUsername());
 
-            return LoginResponse.builder()
-                    .token(token)
-                    .userId(patient.getId())
-                    .patientId(patient.getId())
-                    .username(patient.getUsername())
-                    .realName(patient.getRealName())
-                    .role("PATIENT")
-                    .isNewUser(true)
-                    .randomPassword(randomPassword)
-                    .build();
+        return LoginResponse.builder()
+                .token(token)
+                .userId(patient.getId())
+                .patientId(patient.getId())
+                .username(patient.getUsername())
+                .realName(patient.getRealName())
+                .role("PATIENT")
+                .isNewUser(true)
+                .requirePasswordReset(true)
+                .build();
         }
 
         // 4. 已有用户直接登录
@@ -226,32 +238,34 @@ public class PatientAuthService {
         patient.setIdCardBackUrl(request.getIdCardBackUrl());
         patient.setFaceRecognitionUrl(request.getFaceRecognitionUrl());
         // 测试环境跳过审核时直接设为已认证，否则进入审核中
-        patient.setIdCardStatus(Boolean.TRUE.equals(request.getSkipVerification()) ? 2 : 1);
+        if (Boolean.TRUE.equals(request.getSkipVerification())) {
+            if (!skipVerificationEnabled) {
+                throw new BusinessException(ResultCode.FORBIDDEN, "跳过审核功能仅在测试环境可用");
+            }
+            patient.setIdCardStatus(2);
+        } else {
+            patient.setIdCardStatus(1);
+        }
         patientMapper.update(patient);
 
-        return ProfileResponse.builder()
-                .id(patient.getId())
-                .username(patient.getUsername())
-                .realName(patient.getRealName())
-                .idCard(maskIdCard(patient.getIdCard()))
-                .phone(maskPhone(patient.getPhone()))
-                .gender(patient.getGender())
-                .email(patient.getEmail())
-                .avatar(patient.getAvatar())
-                .birthday(patient.getBirthday())
-                .idCardStatus(patient.getIdCardStatus())
-                .idCardFrontUrl(patient.getIdCardFrontUrl())
-                .idCardBackUrl(patient.getIdCardBackUrl())
-                .faceRecognitionUrl(patient.getFaceRecognitionUrl())
-                .createTime(patient.getCreateTime())
-                .build();
+        return toProfileResponse(patient);
     }
 
     /**
-     * 绑定邮箱（独立于实名认证）
+     * 发送邮箱验证码
+     */
+    public void sendEmailCode(String email) {
+        emailService.sendCode(email);
+    }
+
+    /**
+     * 绑定邮箱（需验证码校验）
      */
     @Transactional
-    public ProfileResponse bindEmail(String email) {
+    public ProfileResponse bindEmail(String email, String code) {
+        if (!emailService.verifyCode(email, code)) {
+            throw new BusinessException(ResultCode.EMAIL_CODE_ERROR);
+        }
         Long patientId = SecurityUtils.getCurrentPatientId();
         Patient patient = patientMapper.findById(patientId);
         if (patient == null) {
@@ -267,6 +281,9 @@ public class PatientAuthService {
      */
     @Transactional
     public ProfileResponse updateUsername(String username) {
+        if (username == null || !username.matches(USERNAME_PATTERN)) {
+            throw new BusinessException(ResultCode.PARAM_ERROR, "用户名仅支持中英文、数字、下划线和连字符，长度3-20位");
+        }
         Long patientId = SecurityUtils.getCurrentPatientId();
         Patient patient = patientMapper.findById(patientId);
         if (patient == null) {
@@ -277,7 +294,7 @@ public class PatientAuthService {
         }
         patient.setUsername(username);
         patientMapper.update(patient);
-        return getProfile();
+        return toProfileResponse(patient);
     }
 
     /**

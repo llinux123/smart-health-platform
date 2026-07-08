@@ -8,30 +8,63 @@ import org.redisson.api.RedissonClient;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.data.redis.core.StringRedisTemplate;
 
+import java.math.BigDecimal;
 import java.util.concurrent.TimeUnit;
 
 /**
  * 排班 Redis 配置
- * 提供 Redis 库存初始化、分布式锁、幂等性检查能力
+ * 提供 Redis 库存、价格、分布式锁、幂等性检查能力
  */
 @Slf4j
 @Configuration
 @RequiredArgsConstructor
 public class ScheduleRedisConfig {
 
+    private static final String SCHEDULE_PRICE_KEY_PREFIX = "schedule:price:";
+    private static final long SCHEDULE_PRICE_TTL_HOURS = 24L;
+    private static final long SECKILL_SET_TTL_MINUTES = 10L;
+
     private final StringRedisTemplate stringRedisTemplate;
     private final RedissonClient redissonClient;
 
     /**
-     * 初始化排班 Redis 库存
+     * 初始化排班 Redis 库存与价格（写穿透，保证秒杀热路径无需访问 DB）
      *
      * @param scheduleId 排班ID
      * @param count      库存数量
+     * @param price      挂号费
      */
-    public void initScheduleStock(Long scheduleId, int count) {
+    public void initScheduleStock(Long scheduleId, int count, BigDecimal price) {
         String stockKey = CommonConstants.REDIS_SCHEDULE_STOCK_PREFIX + scheduleId;
+        String priceKey = SCHEDULE_PRICE_KEY_PREFIX + scheduleId;
         stringRedisTemplate.opsForValue().set(stockKey, String.valueOf(count));
-        log.info("初始化排班Redis库存，scheduleId={}, count={}", scheduleId, count);
+        if (price != null) {
+            stringRedisTemplate.opsForValue().set(priceKey, price.toPlainString(), SCHEDULE_PRICE_TTL_HOURS, TimeUnit.HOURS);
+        }
+        log.info("初始化排班Redis缓存，scheduleId={}, stock={}, price={}", scheduleId, count, price);
+    }
+
+    /**
+     * 获取 Redis 缓存的挂号费
+     *
+     * @param scheduleId 排班ID
+     * @return 挂号费，未缓存时返回 null
+     */
+    public BigDecimal getSchedulePrice(Long scheduleId) {
+        String priceKey = SCHEDULE_PRICE_KEY_PREFIX + scheduleId;
+        String value = stringRedisTemplate.opsForValue().get(priceKey);
+        return value != null ? new BigDecimal(value) : null;
+    }
+
+    /**
+     * 手动写入价格缓存（用于回填或补偿）
+     */
+    public void setSchedulePrice(Long scheduleId, BigDecimal price) {
+        if (price == null) {
+            return;
+        }
+        String priceKey = SCHEDULE_PRICE_KEY_PREFIX + scheduleId;
+        stringRedisTemplate.opsForValue().set(priceKey, price.toPlainString(), SCHEDULE_PRICE_TTL_HOURS, TimeUnit.HOURS);
     }
 
     /**
@@ -114,8 +147,7 @@ public class ScheduleRedisConfig {
         String key = CommonConstants.REDIS_SECKILL_LOCK_PREFIX + scheduleId;
         Long added = stringRedisTemplate.opsForSet().add(key, String.valueOf(patientId));
         if (added != null && added > 0) {
-            // 首次添加时设置 TTL（10 分钟），避免内存无限增长
-            stringRedisTemplate.expire(key, 10, TimeUnit.MINUTES);
+            stringRedisTemplate.expire(key, SECKILL_SET_TTL_MINUTES, TimeUnit.MINUTES);
             return true;
         }
         return false;

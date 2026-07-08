@@ -11,7 +11,7 @@ import com.smart.health.consultation.entity.ConsultationSession;
 import com.smart.health.consultation.entity.ConsultationTurn;
 import com.smart.health.consultation.mapper.ConsultationSessionMapper;
 import com.smart.health.consultation.mapper.ConsultationTurnMapper;
-import com.smart.health.consultation.mapper.PatientMapper;
+import com.smart.health.consultation.mapper.ConsultationPatientMapper;
 import com.smart.health.consultation.service.DoctorConsultService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -22,6 +22,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.Period;
 import java.util.*;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 /**
@@ -34,7 +35,7 @@ public class DoctorConsultServiceImpl implements DoctorConsultService {
 
     private final ConsultationSessionMapper sessionMapper;
     private final ConsultationTurnMapper turnMapper;
-    private final PatientMapper patientMapper;
+    private final ConsultationPatientMapper patientMapper;
 
     @Override
     public PageResult<DoctorConsultSessionVO> listPending(DoctorConsultListRequest request) {
@@ -44,8 +45,10 @@ public class DoctorConsultServiceImpl implements DoctorConsultService {
         List<ConsultationSession> sessions = sessionMapper.selectPendingForDoctor(doctorId, request.getKeyword());
         PageInfo<ConsultationSession> pageInfo = new PageInfo<>(sessions);
 
+        Map<Long, PatientInfo> patientMap = buildPatientMap(sessions);
+
         List<DoctorConsultSessionVO> vos = sessions.stream()
-                .map(this::toDoctorSessionVO)
+                .map(s -> toDoctorSessionVO(s, patientMap))
                 .collect(Collectors.toList());
 
         return PageResult.of(vos, pageInfo.getTotal(), request.getPage(), request.getSize());
@@ -55,8 +58,7 @@ public class DoctorConsultServiceImpl implements DoctorConsultService {
     @Transactional(readOnly = true)
     public DoctorConsultDetailVO getDetail(String sessionSn) {
         ConsultationSession session = findSession(sessionSn);
-        List<ConsultationTurn> turns = turnMapper.selectBySessionSnDesc(sessionSn);
-        Collections.reverse(turns);
+        List<ConsultationTurn> turns = turnMapper.selectBySessionSnAsc(sessionSn);
 
         String patientName = patientMapper.selectNameById(session.getPatientId());
         Integer gender = patientMapper.selectGenderById(session.getPatientId());
@@ -146,10 +148,26 @@ public class DoctorConsultServiceImpl implements DoctorConsultService {
         return session;
     }
 
-    private DoctorConsultSessionVO toDoctorSessionVO(ConsultationSession s) {
-        String patientName = patientMapper.selectNameById(s.getPatientId());
-        Integer gender = patientMapper.selectGenderById(s.getPatientId());
-        Integer age = calculateAge(patientMapper.selectBirthdayById(s.getPatientId()));
+    private Map<Long, PatientInfo> buildPatientMap(List<ConsultationSession> sessions) {
+        Set<Long> patientIds = sessions.stream()
+                .map(ConsultationSession::getPatientId)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toSet());
+
+        if (patientIds.isEmpty()) {
+            return Collections.emptyMap();
+        }
+
+        List<PatientInfo> patients = patientMapper.selectBatchInfo(new ArrayList<>(patientIds));
+        return patients.stream()
+                .collect(Collectors.toMap(PatientInfo::getId, Function.identity()));
+    }
+
+    private DoctorConsultSessionVO toDoctorSessionVO(ConsultationSession s, Map<Long, PatientInfo> patientMap) {
+        PatientInfo patientInfo = patientMap.get(s.getPatientId());
+        String patientName = patientInfo != null ? patientInfo.getName() : null;
+        Integer gender = patientInfo != null ? patientInfo.getGender() : null;
+        Integer age = patientInfo != null ? calculateAge(patientInfo.getBirthday()) : null;
 
         int turnCount = s.getId() != null ? turnMapper.countBySessionSn(s.getSessionSn()) : 0;
         int fileCount = countFiles(s.getFileUrls());

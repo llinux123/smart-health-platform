@@ -26,6 +26,12 @@ public interface ConsultationTurnMapper {
     List<ConsultationTurn> selectBySessionSnDesc(@Param("sessionSn") String sessionSn);
 
     /**
+     * 查询会话的对话轮次（按 turn_number ASC）
+     */
+    @Select("SELECT * FROM t_consultation_turn WHERE session_sn = #{sessionSn} ORDER BY turn_number ASC")
+    List<ConsultationTurn> selectBySessionSnAsc(@Param("sessionSn") String sessionSn);
+
+    /**
      * 查询会话的最大轮次号
      */
     @Select("SELECT MAX(turn_number) FROM t_consultation_turn WHERE session_sn = #{sessionSn}")

@@ -21,6 +21,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.test.util.ReflectionTestUtils;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -50,12 +51,15 @@ class PatientAuthServiceTest {
     @Mock
     private SmsService smsService;
 
+    @Mock
+    private EmailService emailService;
+
     private PatientAuthService patientAuthService;
 
     @BeforeEach
     void setUp() {
         patientAuthService = new PatientAuthService(
-                patientMapper, passwordEncoder, jwtTokenProvider, smsService
+                patientMapper, passwordEncoder, jwtTokenProvider, smsService, emailService
         );
         // 清理 SecurityContext
         SecurityContextHolder.clearContext();
@@ -229,7 +233,7 @@ class PatientAuthServiceTest {
         assertThat(response).isNotNull();
         assertThat(response.getToken()).isEqualTo("token-123");
         assertThat(response.getIsNewUser()).isFalse();
-        assertThat(response.getRandomPassword()).isNull();
+        assertThat(response.getRequirePasswordReset()).isFalse();
     }
 
     @Test
@@ -252,7 +256,7 @@ class PatientAuthServiceTest {
         // Then
         assertThat(response).isNotNull();
         assertThat(response.getIsNewUser()).isTrue();
-        assertThat(response.getRandomPassword()).isNotNull().hasSize(12);
+        assertThat(response.getRequirePasswordReset()).isTrue();
         verify(patientMapper).insert(any());
     }
 
@@ -311,6 +315,8 @@ class PatientAuthServiceTest {
     @DisplayName("身份绑定 - 测试环境跳过验证直接通过")
     void bindIdentity_skipVerification_directVerified() {
         // Given
+        ReflectionTestUtils.setField(patientAuthService, "skipVerificationEnabled", true);
+
         PatientUserDetails userDetails = new PatientUserDetails(1L, "u_13800138000", "password", Collections.emptyList());
         var authentication = new UsernamePasswordAuthenticationToken(userDetails, null, userDetails.getAuthorities());
         SecurityContextHolder.getContext().setAuthentication(authentication);
@@ -481,6 +487,90 @@ class PatientAuthServiceTest {
         assertThatThrownBy(() -> patientAuthService.bindIdentity(request))
                 .isInstanceOf(BusinessException.class)
                 .extracting("code").isEqualTo(ResultCode.USER_NOT_FOUND.getCode());
+    }
+
+    @Test
+    @DisplayName("发送邮箱验证码 - 调用 EmailService.sendCode")
+    void sendEmailCode_callsEmailService() {
+        // Given
+        String email = "test@example.com";
+
+        // When
+        patientAuthService.sendEmailCode(email);
+
+        // Then
+        verify(emailService).sendCode(email);
+    }
+
+    @Test
+    @DisplayName("绑定邮箱 - 验证码正确时绑定成功")
+    void bindEmail_correctCode_bindsEmail() {
+        // Given
+        String email = "test@example.com";
+        String code = "123456";
+
+        PatientUserDetails userDetails = new PatientUserDetails(1L, "testuser", "password", Collections.emptyList());
+        var authentication = new UsernamePasswordAuthenticationToken(userDetails, null, userDetails.getAuthorities());
+        SecurityContextHolder.getContext().setAuthentication(authentication);
+
+        Patient patient = new Patient();
+        patient.setId(1L);
+        patient.setUsername("testuser");
+        patient.setRealName("张三");
+        patient.setPhone("13800138000");
+        patient.setCreateTime(LocalDateTime.now());
+
+        when(emailService.verifyCode(email, code)).thenReturn(true);
+        when(patientMapper.findById(1L)).thenReturn(patient);
+        when(patientMapper.update(any())).thenReturn(1);
+
+        // When
+        ProfileResponse response = patientAuthService.bindEmail(email, code);
+
+        // Then
+        assertThat(response).isNotNull();
+        assertThat(response.getEmail()).isEqualTo(email);
+        verify(emailService).verifyCode(email, code);
+        verify(patientMapper).update(any());
+    }
+
+    @Test
+    @DisplayName("绑定邮箱 - 验证码错误时抛出异常")
+    void bindEmail_wrongCode_throwsException() {
+        // Given
+        String email = "test@example.com";
+        String code = "000000";
+
+        when(emailService.verifyCode(email, code)).thenReturn(false);
+
+        // When & Then
+        assertThatThrownBy(() -> patientAuthService.bindEmail(email, code))
+                .isInstanceOf(BusinessException.class)
+                .extracting("code").isEqualTo(ResultCode.EMAIL_CODE_ERROR.getCode());
+
+        verify(patientMapper, never()).update(any());
+    }
+
+    @Test
+    @DisplayName("绑定邮箱 - 用户不存在时抛出异常")
+    void bindEmail_userNotFound_throwsException() {
+        // Given
+        String email = "test@example.com";
+        String code = "123456";
+
+        PatientUserDetails userDetails = new PatientUserDetails(99L, "nonexistent", "password", Collections.emptyList());
+        var authentication = new UsernamePasswordAuthenticationToken(userDetails, null, userDetails.getAuthorities());
+        SecurityContextHolder.getContext().setAuthentication(authentication);
+
+        when(emailService.verifyCode(email, code)).thenReturn(true);
+        when(patientMapper.findById(99L)).thenReturn(null);
+
+        // When & Then
+        assertThatThrownBy(() -> patientAuthService.bindEmail(email, code))
+                .isInstanceOf(BusinessException.class)
+                .extracting("code").isEqualTo(ResultCode.USER_NOT_FOUND.getCode());
+
+        verify(patientMapper, never()).update(any());
     }
 
     @Test

@@ -1,6 +1,5 @@
 package com.smart.health.registration.service.impl;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.smart.health.common.constant.CommonConstants;
 import com.smart.health.common.exception.BusinessException;
 import com.smart.health.common.result.ResultCode;
@@ -21,8 +20,8 @@ import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
-import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -37,10 +36,9 @@ public class ScheduleServiceImpl implements ScheduleService {
     private final DoctorScheduleMapper doctorScheduleMapper;
     private final ScheduleRedisConfig scheduleRedisConfig;
     private final RabbitTemplate rabbitTemplate;
-    private final ObjectMapper objectMapper;
     private final OrderSnGenerator orderSnGenerator;
 
-    private static final DateTimeFormatter DATE_FMT = DateTimeFormatter.ofPattern("yyyyMMdd");
+    private static final int SHIFT_MORNING = 1;
 
     @Override
     @Transactional(rollbackFor = Exception.class)
@@ -59,8 +57,8 @@ public class ScheduleServiceImpl implements ScheduleService {
 
         doctorScheduleMapper.insert(schedule);
 
-        // 初始化 Redis 库存
-        scheduleRedisConfig.initScheduleStock(schedule.getId(), request.getTotalCount());
+        // 写穿透：库存与价格一起初始化到 Redis，秒杀热路径无需访问 DB
+        scheduleRedisConfig.initScheduleStock(schedule.getId(), request.getTotalCount(), request.getPrice());
 
         log.info("创建排班成功，scheduleId={}, stock={}", schedule.getId(), request.getTotalCount());
     }
@@ -84,9 +82,10 @@ public class ScheduleServiceImpl implements ScheduleService {
     public SeckillResponse seckill(SeckillRequest request, Long patientId) {
         Long scheduleId = request.getScheduleId();
 
-        // 1. 校验排班是否存在
-        DoctorSchedule schedule = doctorScheduleMapper.selectById(scheduleId);
-        if (schedule == null) {
+        // 1. Redis 存在性检查（替代热路径上的 DB 查询）：库存 key 不存在视为排班无效
+        //    同时预热检查价格缓存（写穿透时已写入，缓存未命中则按 SCHEDULE_NOT_FOUND 处理）
+        if (scheduleRedisConfig.getScheduleStock(scheduleId) == null
+                || scheduleRedisConfig.getSchedulePrice(scheduleId) == null) {
             throw new BusinessException(ResultCode.SCHEDULE_NOT_FOUND);
         }
 
@@ -102,17 +101,20 @@ public class ScheduleServiceImpl implements ScheduleService {
         }
 
         try {
-            // 4. 再次检查幂等性（双重检查）
+            // 4. 双重检查：持锁后再校验幂等，避免锁窗口内的并发抢号
             if (scheduleRedisConfig.isPatientInSeckillSet(scheduleId, patientId)) {
                 throw new BusinessException(ResultCode.REPEAT_SECKILL);
             }
 
             // 5. Redis 原子预扣库存
             Long remain = scheduleRedisConfig.decrementStock(scheduleId);
-            if (remain == null || remain < 0) {
-                if (remain != null && remain < 0) {
-                    scheduleRedisConfig.incrementStock(scheduleId);
-                }
+            if (remain == null) {
+                // 锁内再次确认 key 缺失：缓存异常或排班已下架
+                throw new BusinessException(ResultCode.SCHEDULE_NOT_FOUND);
+            }
+            if (remain < 0) {
+                // 超卖保护：超出则回滚本次 DECR 并提示库存为空
+                scheduleRedisConfig.incrementStock(scheduleId);
                 throw new BusinessException(ResultCode.STOCK_EMPTY);
             }
 
@@ -122,18 +124,19 @@ public class ScheduleServiceImpl implements ScheduleService {
             // 7. 标记患者已抢（幂等性）
             scheduleRedisConfig.addPatientToSeckillSet(scheduleId, patientId);
 
-            // 8. 发送 MQ 消息异步创建订单
+            // 8. 发送 MQ 消息异步创建订单（使用 Jackson Converter，避免手工 JSON 序列化）
+            BigDecimal price = scheduleRedisConfig.getSchedulePrice(scheduleId);
             SeckillOrderMessage message = new SeckillOrderMessage();
             message.setOrderSn(orderSn);
             message.setPatientId(patientId);
             message.setScheduleId(scheduleId);
-            message.setAmount(schedule.getPrice());
+            message.setAmount(price);
 
             try {
                 rabbitTemplate.convertAndSend(
                         CommonConstants.MQ_EXCHANGE_REGISTRATION,
                         CommonConstants.MQ_ROUTING_KEY_ORDER_CREATE,
-                        objectMapper.writeValueAsString(message)
+                        message
                 );
                 log.info("秒杀订单消息已发送，orderSn={}, scheduleId={}, patientId={}", orderSn, scheduleId, patientId);
             } catch (Exception e) {
@@ -166,7 +169,7 @@ public class ScheduleServiceImpl implements ScheduleService {
         vo.setDeptName(schedule.getDeptName());
         vo.setWorkDate(schedule.getWorkDate());
         vo.setShift(schedule.getShift());
-        vo.setShiftName(schedule.getShift() == 1 ? "上午" : "下午");
+        vo.setShiftName(schedule.getShift() != null && schedule.getShift() == SHIFT_MORNING ? "上午" : "下午");
         vo.setTotalCount(schedule.getTotalCount());
         vo.setVisibleCount(schedule.getVisibleCount());
         vo.setPrice(schedule.getPrice());

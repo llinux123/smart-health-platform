@@ -16,7 +16,7 @@ services:
     ports:
       - "3306:3306"
     environment:
-      MYSQL_ROOT_PASSWORD: root123456
+      MYSQL_ROOT_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD is required}
       MYSQL_DATABASE: smart_health
       MYSQL_CHARACTER_SET_SERVER: utf8mb4
       MYSQL_COLLATION_SERVER: utf8mb4_unicode_ci
@@ -47,8 +47,8 @@ services:
       - "5672:5672"
       - "15672:15672"
     environment:
-      RABBITMQ_DEFAULT_USER: guest
-      RABBITMQ_DEFAULT_PASS: guest
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USERNAME:?RABBITMQ_USERNAME is required}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:?RABBITMQ_PASSWORD is required}
     volumes:
       - rabbitmq-data:/var/lib/rabbitmq
     networks:
@@ -62,7 +62,8 @@ services:
       - "9200:9200"
     environment:
       - discovery.type=single-node
-      - xpack.security.enabled=false
+      - xpack.security.enabled=true
+      - ELASTIC_PASSWORD=${ES_PASSWORD:?ES_PASSWORD is required}
       - ES_JAVA_OPTS=-Xms256m -Xmx256m
     volumes:
       - es-data:/usr/share/elasticsearch/data
@@ -96,17 +97,22 @@ services:
       - "8081:8081"
     environment:
       SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/smart_health?useUnicode=true&characterEncoding=utf-8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true
-      SPRING_DATASOURCE_USERNAME: root
-      SPRING_DATASOURCE_PASSWORD: root123456
+      SPRING_DATASOURCE_USERNAME: ${DB_USERNAME:?DB_USERNAME is required}
+      SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD is required}
       SPRING_DATA_REDIS_HOST: redis
       SPRING_DATA_REDIS_PORT: 6379
       NACOS_SERVER_ADDR: nacos:8848
-      JWT_SECRET: ${JWT_SECRET:-c21hcnQtaGVhbHRoLXBsYXRmb3JtLWp3dC1zZWNyZXQta2V5LTIwMjY=}
-      SMS_PROVIDER: ${SMS_PROVIDER:-mock}
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}
+      SMS_PROVIDER: ${SMS_PROVIDER:?SMS_PROVIDER must be set (aliyun or mock)}
       SMS_ALIYUN_ACCESS_KEY_ID: ${SMS_ALIYUN_ACCESS_KEY_ID:-}
       SMS_ALIYUN_ACCESS_KEY_SECRET: ${SMS_ALIYUN_ACCESS_KEY_SECRET:-}
       SMS_ALIYUN_SIGN_NAME: ${SMS_ALIYUN_SIGN_NAME:-}
       SMS_ALIYUN_TEMPLATE_CODE: ${SMS_ALIYUN_TEMPLATE_CODE:-}
+      EMAIL_PROVIDER: ${EMAIL_PROVIDER:-mock}
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USERNAME: ${SMTP_USERNAME:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
     depends_on:
       - mysql
       - redis
@@ -124,16 +130,16 @@ services:
       - "8082:8082"
     environment:
       SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/smart_health?useUnicode=true&characterEncoding=utf-8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true
-      SPRING_DATASOURCE_USERNAME: root
-      SPRING_DATASOURCE_PASSWORD: root123456
+      SPRING_DATASOURCE_USERNAME: ${DB_USERNAME:?DB_USERNAME is required}
+      SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD is required}
       SPRING_DATA_REDIS_HOST: redis
       SPRING_DATA_REDIS_PORT: 6379
       SPRING_RABBITMQ_HOST: rabbitmq
       SPRING_RABBITMQ_PORT: 5672
-      SPRING_RABBITMQ_USERNAME: guest
-      SPRING_RABBITMQ_PASSWORD: guest
+      SPRING_RABBITMQ_USERNAME: ${RABBITMQ_USERNAME:?RABBITMQ_USERNAME is required}
+      SPRING_RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD:?RABBITMQ_PASSWORD is required}
       NACOS_SERVER_ADDR: nacos:8848
-      JWT_SECRET: ${JWT_SECRET:-c21hcnQtaGVhbHRoLXBsYXRmb3JtLWp3dC1zZWNyZXQta2V5LTIwMjY=}
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}
     depends_on:
       - mysql
       - redis
@@ -152,15 +158,17 @@ services:
       - "8083:8083"
     environment:
       SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/smart_health?useUnicode=true&characterEncoding=utf-8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true
-      SPRING_DATASOURCE_USERNAME: root
-      SPRING_DATASOURCE_PASSWORD: root123456
+      SPRING_DATASOURCE_USERNAME: ${DB_USERNAME:?DB_USERNAME is required}
+      SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD is required}
       SPRING_DATA_REDIS_HOST: redis
       SPRING_DATA_REDIS_PORT: 6379
       SPRING_ELASTICSEARCH_URIS: http://elasticsearch:9200
+      SPRING_ELASTICSEARCH_USERNAME: elastic
+      SPRING_ELASTICSEARCH_PASSWORD: ${ES_PASSWORD:?ES_PASSWORD is required}
       NACOS_SERVER_ADDR: nacos:8848
       AI_API_KEY: ${AI_API_KEY}
       ZHIPU_API_KEY: ${ZHIPU_API_KEY}
-      JWT_SECRET: ${JWT_SECRET:-c21hcnQtaGVhbHRoLXBsYXRmb3JtLWp3dC1zZWNyZXQta2V5LTIwMjY=}
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}
       UPLOAD_PATH: /app/uploads
     volumes:
       - consultation-uploads:/app/uploads
@@ -182,12 +190,12 @@ services:
       - "8084:8084"
     environment:
       SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/smart_health?useUnicode=true&characterEncoding=utf-8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true
-      SPRING_DATASOURCE_USERNAME: root
-      SPRING_DATASOURCE_PASSWORD: root123456
+      SPRING_DATASOURCE_USERNAME: ${DB_USERNAME:?DB_USERNAME is required}
+      SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD is required}
       SPRING_DATA_REDIS_HOST: redis
       SPRING_DATA_REDIS_PORT: 6379
       NACOS_SERVER_ADDR: nacos:8848
-      JWT_SECRET: ${JWT_SECRET:-c21hcnQtaGVhbHRoLXBsYXRmb3JtLWp3dC1zZWNyZXQta2V5LTIwMjY=}
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}
       UPLOAD_PATH: /app/uploads
     volumes:
       - prescription-uploads:/app/uploads
@@ -211,7 +219,7 @@ services:
       - "9000:9000"
     environment:
       NACOS_SERVER_ADDR: nacos:8848
-      JWT_SECRET: ${JWT_SECRET:-c21hcnQtaGVhbHRoLXBsYXRmb3JtLWp3dC1zZWNyZXQta2V5LTIwMjY=}
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}
     depends_on:
       - user-service
       - registration-service
@@ -234,17 +242,19 @@ services:
       - "8080:8080"
     environment:
       SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/smart_health?useUnicode=true&characterEncoding=utf-8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true
-      SPRING_DATASOURCE_USERNAME: root
-      SPRING_DATASOURCE_PASSWORD: root123456
+      SPRING_DATASOURCE_USERNAME: ${DB_USERNAME:?DB_USERNAME is required}
+      SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD is required}
       SPRING_DATA_REDIS_HOST: redis
       SPRING_DATA_REDIS_PORT: 6379
       SPRING_RABBITMQ_HOST: rabbitmq
       SPRING_RABBITMQ_PORT: 5672
-      SPRING_RABBITMQ_USERNAME: guest
-      SPRING_RABBITMQ_PASSWORD: guest
+      SPRING_RABBITMQ_USERNAME: ${RABBITMQ_USERNAME:?RABBITMQ_USERNAME is required}
+      SPRING_RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD:?RABBITMQ_PASSWORD is required}
       SPRING_ELASTICSEARCH_URIS: http://elasticsearch:9200
+      SPRING_ELASTICSEARCH_USERNAME: elastic
+      SPRING_ELASTICSEARCH_PASSWORD: ${ES_PASSWORD:?ES_PASSWORD is required}
       NACOS_SERVER_ADDR: nacos:8848
-      JWT_SECRET: ${JWT_SECRET:-c21hcnQtaGVhbHRoLXBsYXRmb3JtLWp3dC1zZWNyZXQta2V5LTIwMjY=}
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}
       AI_API_KEY: ${AI_API_KEY}
       ZHIPU_API_KEY: ${ZHIPU_API_KEY}
       UPLOAD_PATH: /app/uploads

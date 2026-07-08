@@ -9,8 +9,11 @@ import com.smart.health.user.service.StaffAuthService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
 /**
@@ -18,6 +21,7 @@ import org.springframework.web.bind.annotation.*;
  */
 @Tag(name = "认证", description = "注册/登录/登出接口")
 @Slf4j
+@Validated
 @RestController
 @RequestMapping("/api/v1/auth")
 @RequiredArgsConstructor
@@ -79,15 +83,26 @@ public class AuthController {
         return Result.ok("身份绑定成功", patientAuthService.bindIdentity(request));
     }
 
-    @Operation(summary = "绑定邮箱", description = "患者独立绑定邮箱（与实名认证分离）")
+    @Operation(summary = "发送邮箱验证码")
+    @PostMapping("/send-email-code")
+    public Result<Void> sendEmailCode(@Valid @RequestBody SendEmailCodeRequest request) {
+        patientAuthService.sendEmailCode(request.getEmail());
+        return Result.ok("验证码已发送到邮箱", null);
+    }
+
+    @Operation(summary = "绑定邮箱", description = "通过邮箱验证码绑定邮箱")
     @PostMapping("/bind-email")
     public Result<ProfileResponse> bindEmail(@Valid @RequestBody BindEmailRequest request) {
-        return Result.ok("邮箱绑定成功", patientAuthService.bindEmail(request.getEmail()));
+        return Result.ok("邮箱绑定成功", patientAuthService.bindEmail(request.getEmail(), request.getCode()));
     }
 
     @Operation(summary = "更新用户名", description = "更新当前患者用户名")
     @PostMapping("/update-username")
-    public Result<ProfileResponse> updateUsername(@RequestParam String username) {
+    public Result<ProfileResponse> updateUsername(
+            @RequestParam
+            @NotBlank(message = "用户名不能为空")
+            @Size(min = 3, max = 20, message = "用户名长度必须在3-20个字符之间")
+            String username) {
         return Result.ok("用户名更新成功", patientAuthService.updateUsername(username));
     }
 

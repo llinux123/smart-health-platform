@@ -6,6 +6,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.http.MediaType;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
@@ -30,6 +31,7 @@ import lombok.RequiredArgsConstructor;
 public class SecurityConfig {
 
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
+    private final StringRedisTemplate stringRedisTemplate;
 
     /**
      * 白名单路径
@@ -39,6 +41,7 @@ public class SecurityConfig {
             "/api/v1/auth/login",
             "/api/v1/auth/login/sms",
             "/api/v1/auth/send-code",
+            "/api/v1/auth/send-email-code",
             "/api/v1/auth/reset-password",
             "/api/v1/auth/avatars/**",
             "/doc.html",
@@ -73,9 +76,15 @@ public class SecurityConfig {
                                 Result.fail(ResultCode.FORBIDDEN)));
                     })
             )
+            .addFilterBefore(rateLimitFilter(), UsernamePasswordAuthenticationFilter.class)
             .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
+    }
+
+    @Bean
+    public RateLimitFilter rateLimitFilter() {
+        return new RateLimitFilter(stringRedisTemplate);
     }
 
     @Bean

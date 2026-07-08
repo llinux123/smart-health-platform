@@ -9,8 +9,14 @@ spring:
   datasource:
     driver-class-name: com.mysql.cj.jdbc.Driver
     url: jdbc:mysql://localhost:3306/smart_health?useUnicode=true&characterEncoding=utf-8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true
-    username: root
-    password: root123456
+    username: ${DB_USERNAME:root}
+    password: ${DB_PASSWORD:root123456}
+
+  # Nacos 服务发现
+  cloud:
+    nacos:
+      discovery:
+        server-addr: ${NACOS_SERVER_ADDR:localhost:8848}
 
   # Redis
   data:
@@ -22,8 +28,8 @@ spring:
   rabbitmq:
     host: localhost
     port: 5672
-    username: guest
-    password: guest
+    username: ${RABBITMQ_USERNAME:admin}
+    password: ${RABBITMQ_PASSWORD:admin123}
     virtual-host: /
 
   # Elasticsearch
@@ -91,7 +97,7 @@ knife4j:
 
 # JWT
 jwt:
-  secret: ${JWT_SECRET:c21hcnQtaGVhbHRoLXBsYXRmb3JtLWp3dC1zZWNyZXQta2V5LTIwMjY=}
+  secret: ${JWT_SECRET:?JWT_SECRET is required}
   expiration: 86400000  # 24 hours in ms
   # 聚合模块使用 user-service 的 DB-backed SecurityConfig，禁用通用 JwtAutoSecurityConfig
   auth:

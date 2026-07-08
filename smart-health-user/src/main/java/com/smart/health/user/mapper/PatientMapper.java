@@ -43,6 +43,7 @@ public interface PatientMapper {
 
     @Update({"<script>",
             "UPDATE t_patient SET",
+            "  username = #{username},",
             "  real_name = #{realName},",
             "  id_card = #{idCard},",
             "  phone = #{phone},",

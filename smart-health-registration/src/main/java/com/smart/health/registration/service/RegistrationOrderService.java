@@ -1,5 +1,6 @@
 package com.smart.health.registration.service;
 
+import com.smart.health.common.result.PageResult;
 import com.smart.health.registration.dto.OrderVO;
 import com.smart.health.registration.entity.RegistrationOrder;
 
@@ -52,6 +53,16 @@ public interface RegistrationOrderService {
      * @return 订单视图列表
      */
     List<OrderVO> listOrderVOByPatientId(Long patientId);
+
+    /**
+     * 分页查询患者的挂号订单列表视图
+     *
+     * @param patientId 患者ID
+     * @param page      页码（从 1 开始）
+     * @param size      每页大小
+     * @return 订单视图分页数据
+     */
+    PageResult<OrderVO> pageOrderVOByPatientId(Long patientId, int page, int size);
 
     /**
      * 取消订单（状态变更为 4-已退号）

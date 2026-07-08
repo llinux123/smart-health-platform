@@ -204,20 +204,21 @@ test.describe('短信验证码登录服务', () => {
       await page.locator('input[placeholder="请输入手机号"]').fill('13800001111')
 
       // 点击获取验证码
-      const codeBtn = page.locator('button:has-text("获取验证码")')
-      await expect(codeBtn).toBeEnabled()
-      await codeBtn.click()
+      const getCodeBtn = page.locator('button:has-text("获取验证码")')
+      await expect(getCodeBtn).toBeEnabled()
+      await getCodeBtn.click()
 
       // 验证 Toast
       await expect(page.locator('.van-toast')).toContainText('验证码已发送', { timeout: 3000 })
 
-      // 验证按钮进入倒计时状态
-      await expect(codeBtn).toBeDisabled()
-      await expect(codeBtn).toContainText(/^\d+s$/) // 显示 60s、59s 等
+      // 按钮文本变为倒计时数字（如 "60s"），用 class 定位按钮
+      const smsCodeBtn = page.locator('.sms-code-btn')
+      await expect(smsCodeBtn).toBeDisabled()
+      await expect(smsCodeBtn).toContainText(/^\d+s$/) // 显示 60s、59s 等
 
       // 等待倒计时减少
       await page.waitForTimeout(2000)
-      await expect(codeBtn).toContainText(/^[0-5]\ds$/) // 倒计时在减少
+      await expect(smsCodeBtn).toContainText(/^[0-5]\ds$/) // 倒计时在减少
       console.log('[PASS] 发送验证码成功，倒计时正常')
     })
 

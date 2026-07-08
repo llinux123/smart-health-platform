@@ -9,8 +9,8 @@ spring:
   datasource:
     driver-class-name: com.mysql.cj.jdbc.Driver
     url: jdbc:mysql://localhost:3306/smart_health?useUnicode=true&characterEncoding=utf-8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true
-    username: root
-    password: root123456
+    username: ${DB_USERNAME:root}
+    password: ${DB_PASSWORD:root123456}
 
   # Redis
   data:
@@ -42,7 +42,7 @@ mybatis:
 
 # JWT
 jwt:
-  secret: ${JWT_SECRET:c21hcnQtaGVhbHRoLXBsYXRmb3JtLWp3dC1zZWNyZXQta2V5LTIwMjY=}
+  secret: ${JWT_SECRET:?JWT_SECRET is required}
   expiration: 86400000  # 24 hours in ms
 
 # 禁用 common 模块的通用 JWT Filter（user-service 使用自己的 DB-backed Filter）
@@ -50,12 +50,32 @@ jwt.auth.filter.enabled: false
 
 # 短信服务配置（mock=本地日志, aliyun=阿里云SMS）
 sms:
-  provider: ${SMS_PROVIDER:mock}
+  provider: ${SMS_PROVIDER:?SMS_PROVIDER must be set (aliyun or mock)}
   aliyun:
     access-key-id: ${SMS_ALIYUN_ACCESS_KEY_ID:}
     access-key-secret: ${SMS_ALIYUN_ACCESS_KEY_SECRET:}
     sign-name: ${SMS_ALIYUN_SIGN_NAME:}
     template-code: ${SMS_ALIYUN_TEMPLATE_CODE:}
+
+  # Mail (SMTP)
+  mail:
+    host: ${SMTP_HOST:}
+    port: ${SMTP_PORT:587}
+    username: ${SMTP_USERNAME:}
+    password: ${SMTP_PASSWORD:}
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
+          connectiontimeout: 5000
+          timeout: 5000
+          writetimeout: 5000
+
+# 邮箱服务配置（mock=本地日志, smtp=SMTP邮件发送）
+email:
+  provider: ${EMAIL_PROVIDER:mock}
 
 # Knife4j / SpringDoc
 springdoc:

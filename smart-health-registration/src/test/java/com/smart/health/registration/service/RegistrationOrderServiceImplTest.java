@@ -22,6 +22,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyList;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
@@ -172,19 +173,15 @@ class RegistrationOrderServiceImplTest {
 
         when(registrationOrderMapper.selectByOrderSn("REG_20260629_000001")).thenReturn(order);
         when(registrationOrderMapper.updateStatus("REG_20260629_000001", 4, List.of(0, 1))).thenReturn(1);
-
-        DoctorSchedule schedule = new DoctorSchedule();
-        schedule.setId(1L);
-        schedule.setVersion(2);
-        when(doctorScheduleMapper.selectById(1L)).thenReturn(schedule);
-        when(doctorScheduleMapper.incrementVisibleCount(1L, 2)).thenReturn(1);
+        when(doctorScheduleMapper.incrementVisibleCountUnchecked(1L)).thenReturn(1);
 
         // When
         registrationOrderService.cancelOrder("REG_20260629_000001", 100L);
 
         // Then
         verify(scheduleRedisConfig).incrementStock(1L);
-        verify(doctorScheduleMapper).incrementVisibleCount(1L, 2);
+        verify(doctorScheduleMapper).incrementVisibleCountUnchecked(1L);
+        verify(doctorScheduleMapper, never()).incrementVisibleCount(anyLong(), anyInt());
         verify(scheduleRedisConfig).removePatientFromSeckillSet(1L, 100L);
     }
 
@@ -252,17 +249,89 @@ class RegistrationOrderServiceImplTest {
     @Test
     @DisplayName("查询订单详情 - 患者查看他人订单抛出 BusinessException")
     void getOrderVOByOrderSn_patientIdMismatch_throwsException() {
-        // Given
-        RegistrationOrder order = new RegistrationOrder();
-        order.setOrderSn("REG_20260629_000001");
-        order.setPatientId(100L);
-
-        when(registrationOrderMapper.selectByOrderSn("REG_20260629_000001")).thenReturn(order);
+        // Given — 单条 SQL 按订单号+患者ID查询，归属不符返回 null
+        when(registrationOrderMapper.selectOrderVOByOrderSnAndPatientId("REG_20260629_000001", 999L))
+                .thenReturn(null);
 
         // When & Then — 患者 999L 查看患者 100L 的订单
         assertThatThrownBy(() -> registrationOrderService.getOrderVOByOrderSn("REG_20260629_000001", 999L, "PATIENT"))
                 .isInstanceOf(com.smart.health.common.exception.BusinessException.class)
-                .hasMessageContaining("无权查看");
+                .hasMessageContaining("订单不存在");
+
+        // 不应触发归属不符时的旧分支（不应再调用 selectByOrderSn + selectOrderVOByOrderSn 两条）
+        verify(registrationOrderMapper, never()).selectByOrderSn(anyString());
+        verify(registrationOrderMapper, never()).selectOrderVOByOrderSn(anyString());
+    }
+
+    @Test
+    @DisplayName("查询订单详情 - PATIENT 命中自身订单时单条 SQL 返回 VO")
+    void getOrderVOByOrderSn_patientMatch_returnsOrder() {
+        // Given
+        OrderVO expected = new OrderVO();
+        expected.setOrderSn("REG_20260629_000001");
+        expected.setPatientId(100L);
+
+        when(registrationOrderMapper.selectOrderVOByOrderSnAndPatientId("REG_20260629_000001", 100L))
+                .thenReturn(expected);
+
+        // When
+        OrderVO result = registrationOrderService.getOrderVOByOrderSn("REG_20260629_000001", 100L, "PATIENT");
+
+        // Then
+        assertThat(result).isNotNull();
+        assertThat(result.getOrderSn()).isEqualTo("REG_20260629_000001");
+        verify(registrationOrderMapper).selectOrderVOByOrderSnAndPatientId("REG_20260629_000001", 100L);
+        verify(registrationOrderMapper, never()).selectOrderVOByOrderSn(anyString());
+    }
+
+    @Test
+    @DisplayName("查询订单详情 - 管理员路径不存在时返回 ORDER_NOT_FOUND")
+    void getOrderVOByOrderSn_adminNotFound_throwsException() {
+        // Given
+        when(registrationOrderMapper.selectOrderVOByOrderSn("REG_20260629_000001")).thenReturn(null);
+
+        // When & Then
+        assertThatThrownBy(() -> registrationOrderService.getOrderVOByOrderSn("REG_20260629_000001", 999L, "ADMIN"))
+                .isInstanceOf(com.smart.health.common.exception.BusinessException.class)
+                .hasMessageContaining("订单不存在");
+    }
+
+    @Test
+    @DisplayName("分页查询订单 - 默认每页大小与偏移计算正确")
+    void pageOrderVOByPatientId_defaultsAndOffset() {
+        // Given
+        when(registrationOrderMapper.countByPatientId(100L)).thenReturn(45);
+        when(registrationOrderMapper.selectOrderVOByPatientIdPaged(100L, 0, 20))
+                .thenReturn(List.of(new OrderVO()));
+
+        // When - 默认 page=1, size=20 → offset=0
+        com.smart.health.common.result.PageResult<OrderVO> page1 =
+                registrationOrderService.pageOrderVOByPatientId(100L, 1, 20);
+
+        // Then
+        assertThat(page1.getTotal()).isEqualTo(45L);
+        assertThat(page1.getPage()).isEqualTo(1);
+        assertThat(page1.getSize()).isEqualTo(20);
+        assertThat(page1.getList()).hasSize(1);
+        verify(registrationOrderMapper).selectOrderVOByPatientIdPaged(100L, 0, 20);
+    }
+
+    @Test
+    @DisplayName("分页查询订单 - 超出上限 size 被裁剪到 100，非法 page/size 走默认值")
+    void pageOrderVOByPatientId_clampsSize() {
+        // Given
+        when(registrationOrderMapper.countByPatientId(100L)).thenReturn(0);
+        when(registrationOrderMapper.selectOrderVOByPatientIdPaged(eq(100L), eq(0), eq(100)))
+                .thenReturn(List.of());
+
+        // When - size=500 → 裁剪到 100；page=-5 → 走 1
+        com.smart.health.common.result.PageResult<OrderVO> result =
+                registrationOrderService.pageOrderVOByPatientId(100L, -5, 500);
+
+        // Then
+        assertThat(result.getPage()).isEqualTo(1);
+        assertThat(result.getSize()).isEqualTo(100);
+        verify(registrationOrderMapper).selectOrderVOByPatientIdPaged(100L, 0, 100);
     }
 
     @Test

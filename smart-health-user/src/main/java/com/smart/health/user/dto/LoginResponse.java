@@ -35,7 +35,8 @@ public class LoginResponse {
     private Boolean isNewUser;
 
     /**
-     * 随机生成的初始密码（仅新注册用户返回，建议用户修改）
+     * 是否要求重置密码（新注册用户首次登录后应修改密码）
      */
-    private String randomPassword;
+    @Builder.Default
+    private Boolean requirePasswordReset = false;
 }

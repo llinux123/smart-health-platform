@@ -57,6 +57,42 @@ public interface RegistrationOrderMapper {
     OrderVO selectOrderVOByOrderSn(@Param("orderSn") String orderSn);
 
     /**
+     * 按订单号 + 患者ID查询订单视图，单次 SQL 完成归属校验与 VO 装配
+     * 返回 null 表示订单不存在或归属不符
+     */
+    @Select("SELECT o.order_sn, o.patient_id, o.schedule_id, " +
+            "s.dept_name, d.name AS doctor_name, s.work_date, s.shift, " +
+            "CASE s.shift WHEN 1 THEN '上午' WHEN 2 THEN '下午' ELSE '未知' END AS shift_name, " +
+            "s.price AS fee, o.status, o.create_time, o.pay_time " +
+            "FROM t_registration_order o " +
+            "LEFT JOIN t_doctor_schedule s ON o.schedule_id = s.id " +
+            "LEFT JOIN t_doctor d ON s.doctor_id = d.id " +
+            "WHERE o.order_sn = #{orderSn} AND o.patient_id = #{patientId}")
+    OrderVO selectOrderVOByOrderSnAndPatientId(@Param("orderSn") String orderSn,
+                                               @Param("patientId") Long patientId);
+
+    /**
+     * 分页查询患者订单列表（按创建时间倒序）
+     *
+     * @param patientId 患者ID
+     * @param offset    偏移量
+     * @param limit     每页大小
+     */
+    @Select("SELECT o.order_sn, o.patient_id, o.schedule_id, " +
+            "s.dept_name, d.name AS doctor_name, s.work_date, s.shift, " +
+            "CASE s.shift WHEN 1 THEN '上午' WHEN 2 THEN '下午' ELSE '未知' END AS shift_name, " +
+            "s.price AS fee, o.status, o.create_time, o.pay_time " +
+            "FROM t_registration_order o " +
+            "LEFT JOIN t_doctor_schedule s ON o.schedule_id = s.id " +
+            "LEFT JOIN t_doctor d ON s.doctor_id = d.id " +
+            "WHERE o.patient_id = #{patientId} " +
+            "ORDER BY o.create_time DESC, o.id DESC " +
+            "LIMIT #{limit} OFFSET #{offset}")
+    List<OrderVO> selectOrderVOByPatientIdPaged(@Param("patientId") Long patientId,
+                                                @Param("offset") int offset,
+                                                @Param("limit") int limit);
+
+    /**
      * 更新订单状态（仅允许从指定源状态流转，保证幂等性）
      *
      * @param orderSn     订单号

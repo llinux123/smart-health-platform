@@ -13,8 +13,8 @@ spring:
   datasource:
     driver-class-name: com.mysql.cj.jdbc.Driver
     url: jdbc:mysql://localhost:3306/smart_health?useUnicode=true&characterEncoding=utf-8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true
-    username: root
-    password: root123456
+    username: ${DB_USERNAME:root}
+    password: ${DB_PASSWORD:root123456}
 
   # Redis
   data:
@@ -80,7 +80,7 @@ pagehelper:
 
 # JWT (用于 common JwtAuthFilter 校验 Token)
 jwt:
-  secret: ${JWT_SECRET:c21hcnQtaGVhbHRoLXBsYXRmb3JtLWp3dC1zZWNyZXQta2V5LTIwMjY=}
+  secret: ${JWT_SECRET:?JWT_SECRET is required}
   expiration: 86400000
 
 # File upload

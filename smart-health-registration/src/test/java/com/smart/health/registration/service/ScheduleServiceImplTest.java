@@ -1,6 +1,5 @@
 package com.smart.health.registration.service;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.smart.health.common.exception.BusinessException;
 import com.smart.health.common.result.ResultCode;
 import com.smart.health.registration.config.ScheduleRedisConfig;
@@ -18,6 +17,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.redisson.api.RLock;
+import org.springframework.amqp.AmqpException;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
 
 import java.math.BigDecimal;
@@ -27,7 +27,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
-import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -47,9 +46,6 @@ class ScheduleServiceImplTest {
     private RabbitTemplate rabbitTemplate;
 
     @Mock
-    private ObjectMapper objectMapper;
-
-    @Mock
     private OrderSnGenerator orderSnGenerator;
 
     @Mock
@@ -63,13 +59,12 @@ class ScheduleServiceImplTest {
                 doctorScheduleMapper,
                 scheduleRedisConfig,
                 rabbitTemplate,
-                objectMapper,
                 orderSnGenerator
         );
     }
 
     @Test
-    @DisplayName("创建排班 - 成功初始化 Redis 库存")
+    @DisplayName("创建排班 - 成功写穿透 Redis 库存与价格")
     void createSchedule_success() {
         // Given
         ScheduleCreateRequest request = new ScheduleCreateRequest();
@@ -91,18 +86,18 @@ class ScheduleServiceImplTest {
 
         // Then
         verify(doctorScheduleMapper).insert(any());
-        verify(scheduleRedisConfig).initScheduleStock(100L, 10);
+        verify(scheduleRedisConfig).initScheduleStock(100L, 10, new BigDecimal("50.00"));
     }
 
     @Test
-    @DisplayName("秒杀抢号 - 排班不存在抛出异常")
+    @DisplayName("秒杀抢号 - Redis 中无库存缓存视为排班不存在")
     void seckill_scheduleNotFound_throwsException() {
         // Given
         SeckillRequest request = new SeckillRequest();
         request.setScheduleId(999L);
         Long patientId = 1L;
 
-        when(doctorScheduleMapper.selectById(999L)).thenReturn(null);
+        when(scheduleRedisConfig.getScheduleStock(999L)).thenReturn(null);
 
         // When & Then
         assertThatThrownBy(() -> scheduleService.seckill(request, patientId))
@@ -110,6 +105,23 @@ class ScheduleServiceImplTest {
                 .extracting("code").isEqualTo(ResultCode.SCHEDULE_NOT_FOUND.getCode());
 
         verify(scheduleRedisConfig, never()).isPatientInSeckillSet(anyLong(), anyLong());
+        verify(doctorScheduleMapper, never()).selectById(anyLong());
+    }
+
+    @Test
+    @DisplayName("秒杀抢号 - 价格缓存缺失视为排班不存在")
+    void seckill_priceMissing_throwsException() {
+        SeckillRequest request = new SeckillRequest();
+        request.setScheduleId(1L);
+
+        when(scheduleRedisConfig.getScheduleStock(1L)).thenReturn(10L);
+        when(scheduleRedisConfig.getSchedulePrice(1L)).thenReturn(null);
+
+        assertThatThrownBy(() -> scheduleService.seckill(request, 100L))
+                .isInstanceOf(BusinessException.class)
+                .extracting("code").isEqualTo(ResultCode.SCHEDULE_NOT_FOUND.getCode());
+
+        verify(scheduleRedisConfig, never()).decrementStock(anyLong());
     }
 
     @Test
@@ -120,11 +132,8 @@ class ScheduleServiceImplTest {
         request.setScheduleId(1L);
         Long patientId = 100L;
 
-        DoctorSchedule schedule = new DoctorSchedule();
-        schedule.setId(1L);
-        schedule.setPrice(new BigDecimal("50.00"));
-
-        when(doctorScheduleMapper.selectById(1L)).thenReturn(schedule);
+        when(scheduleRedisConfig.getScheduleStock(1L)).thenReturn(10L);
+        when(scheduleRedisConfig.getSchedulePrice(1L)).thenReturn(new BigDecimal("50.00"));
         when(scheduleRedisConfig.isPatientInSeckillSet(1L, 100L)).thenReturn(true);
 
         // When & Then
@@ -143,11 +152,8 @@ class ScheduleServiceImplTest {
         request.setScheduleId(1L);
         Long patientId = 100L;
 
-        DoctorSchedule schedule = new DoctorSchedule();
-        schedule.setId(1L);
-        schedule.setPrice(new BigDecimal("50.00"));
-
-        when(doctorScheduleMapper.selectById(1L)).thenReturn(schedule);
+        when(scheduleRedisConfig.getScheduleStock(1L)).thenReturn(10L);
+        when(scheduleRedisConfig.getSchedulePrice(1L)).thenReturn(new BigDecimal("50.00"));
         when(scheduleRedisConfig.isPatientInSeckillSet(1L, 100L)).thenReturn(false);
         when(scheduleRedisConfig.tryAcquireSeckillLock(1L, 100L, 3L, 10L)).thenReturn(null);
 
@@ -160,18 +166,15 @@ class ScheduleServiceImplTest {
     }
 
     @Test
-    @DisplayName("秒杀抢号 - 库存不足抛出异常")
+    @DisplayName("秒杀抢号 - 库存不足抛出异常并回滚")
     void seckill_stockEmpty_throwsException() {
         // Given
         SeckillRequest request = new SeckillRequest();
         request.setScheduleId(1L);
         Long patientId = 100L;
 
-        DoctorSchedule schedule = new DoctorSchedule();
-        schedule.setId(1L);
-        schedule.setPrice(new BigDecimal("50.00"));
-
-        when(doctorScheduleMapper.selectById(1L)).thenReturn(schedule);
+        when(scheduleRedisConfig.getScheduleStock(1L)).thenReturn(10L);
+        when(scheduleRedisConfig.getSchedulePrice(1L)).thenReturn(new BigDecimal("50.00"));
         when(scheduleRedisConfig.isPatientInSeckillSet(1L, 100L)).thenReturn(false);
         when(scheduleRedisConfig.tryAcquireSeckillLock(1L, 100L, 3L, 10L)).thenReturn(rLock);
         when(rLock.isHeldByCurrentThread()).thenReturn(true);
@@ -187,24 +190,25 @@ class ScheduleServiceImplTest {
     }
 
     @Test
-    @DisplayName("秒杀抢号 - MQ 发送失败回滚库存")
-    void seckill_mqSendFails_rollbackStock() throws Exception {
+    @DisplayName("秒杀抢号 - MQ 发送失败回滚库存与幂等集合")
+    void seckill_mqSendFails_rollbackStock() {
         // Given
         SeckillRequest request = new SeckillRequest();
         request.setScheduleId(1L);
         Long patientId = 100L;
 
-        DoctorSchedule schedule = new DoctorSchedule();
-        schedule.setId(1L);
-        schedule.setPrice(new BigDecimal("50.00"));
-
-        when(doctorScheduleMapper.selectById(1L)).thenReturn(schedule);
+        when(scheduleRedisConfig.getScheduleStock(1L)).thenReturn(10L);
+        when(scheduleRedisConfig.getSchedulePrice(1L)).thenReturn(new BigDecimal("50.00"));
         when(scheduleRedisConfig.isPatientInSeckillSet(1L, 100L)).thenReturn(false);
         when(scheduleRedisConfig.tryAcquireSeckillLock(1L, 100L, 3L, 10L)).thenReturn(rLock);
         when(rLock.isHeldByCurrentThread()).thenReturn(true);
         when(scheduleRedisConfig.decrementStock(1L)).thenReturn(5L);
         when(orderSnGenerator.generate()).thenReturn("REG_20260629_000001");
-        when(objectMapper.writeValueAsString(any())).thenThrow(new RuntimeException("JSON error"));
+        org.mockito.Mockito.doThrow(new AmqpException("rabbit down"))
+                .when(rabbitTemplate).convertAndSend(
+                        eq("exchange.registration"),
+                        eq("order.create"),
+                        any(SeckillResponse.class));
 
         // When & Then
         assertThatThrownBy(() -> scheduleService.seckill(request, patientId))
@@ -217,24 +221,20 @@ class ScheduleServiceImplTest {
     }
 
     @Test
-    @DisplayName("秒杀抢号 - 成功场景")
-    void seckill_success() throws Exception {
+    @DisplayName("秒杀抢号 - 成功场景使用 Jackson Converter 发送对象")
+    void seckill_success() {
         // Given
         SeckillRequest request = new SeckillRequest();
         request.setScheduleId(1L);
         Long patientId = 100L;
 
-        DoctorSchedule schedule = new DoctorSchedule();
-        schedule.setId(1L);
-        schedule.setPrice(new BigDecimal("50.00"));
-
-        when(doctorScheduleMapper.selectById(1L)).thenReturn(schedule);
+        when(scheduleRedisConfig.getScheduleStock(1L)).thenReturn(10L);
+        when(scheduleRedisConfig.getSchedulePrice(1L)).thenReturn(new BigDecimal("50.00"));
         when(scheduleRedisConfig.isPatientInSeckillSet(1L, 100L)).thenReturn(false);
         when(scheduleRedisConfig.tryAcquireSeckillLock(1L, 100L, 3L, 10L)).thenReturn(rLock);
         when(rLock.isHeldByCurrentThread()).thenReturn(true);
         when(scheduleRedisConfig.decrementStock(1L)).thenReturn(5L);
         when(orderSnGenerator.generate()).thenReturn("REG_20260629_000001");
-        when(objectMapper.writeValueAsString(any())).thenReturn("{\"orderSn\":\"REG_20260629_000001\"}");
 
         // When
         SeckillResponse response = scheduleService.seckill(request, patientId);
@@ -248,8 +248,10 @@ class ScheduleServiceImplTest {
         verify(rabbitTemplate).convertAndSend(
                 eq("exchange.registration"),
                 eq("order.create"),
-                anyString()
+                any(com.smart.health.registration.dto.SeckillOrderMessage.class)
         );
         verify(rLock).unlock();
+        // 关键：热路径不再访问 DB
+        verify(doctorScheduleMapper, never()).selectById(anyLong());
     }
 }

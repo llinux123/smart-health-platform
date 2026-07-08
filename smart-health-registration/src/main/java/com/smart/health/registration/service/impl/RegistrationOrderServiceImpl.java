@@ -1,6 +1,7 @@
 package com.smart.health.registration.service.impl;
 
 import com.smart.health.common.exception.BusinessException;
+import com.smart.health.common.result.PageResult;
 import com.smart.health.common.result.ResultCode;
 import com.smart.health.registration.config.ScheduleRedisConfig;
 import com.smart.health.registration.dto.OrderVO;
@@ -24,6 +25,9 @@ import java.util.List;
 @Service
 @RequiredArgsConstructor
 public class RegistrationOrderServiceImpl implements RegistrationOrderService {
+
+    private static final int MAX_PAGE_SIZE = 100;
+    private static final int DEFAULT_PAGE_SIZE = 20;
 
     private final RegistrationOrderMapper registrationOrderMapper;
     private final DoctorScheduleMapper doctorScheduleMapper;
@@ -59,22 +63,37 @@ public class RegistrationOrderServiceImpl implements RegistrationOrderService {
 
     @Override
     public OrderVO getOrderVOByOrderSn(String orderSn, Long patientId, String role) {
-        // 角色分级授权：PATIENT 需归属校验，ADMIN/DOCTOR 可查看任意订单
+        OrderVO vo;
         if ("PATIENT".equals(role)) {
-            RegistrationOrder order = registrationOrderMapper.selectByOrderSn(orderSn);
-            if (order == null) {
-                throw new BusinessException(ResultCode.ORDER_NOT_FOUND);
+            // PATIENT 角色：单条 SQL 完成归属校验与 VO 装配（替代原先 selectByOrderSn + selectOrderVOByOrderSn 两次查询）
+            vo = registrationOrderMapper.selectOrderVOByOrderSnAndPatientId(orderSn, patientId);
+            if (vo == null) {
+                throw new BusinessException(ResultCode.ORDER_NOT_FOUND, "订单不存在或无权查看");
             }
-            if (!order.getPatientId().equals(patientId)) {
-                throw new BusinessException(ResultCode.UNAUTHORIZED, "无权查看该订单");
-            }
+            return vo;
         }
-        return registrationOrderMapper.selectOrderVOByOrderSn(orderSn);
+        // ADMIN / DOCTOR：跳过归属校验，单条 JOIN 查询
+        vo = registrationOrderMapper.selectOrderVOByOrderSn(orderSn);
+        if (vo == null) {
+            throw new BusinessException(ResultCode.ORDER_NOT_FOUND);
+        }
+        return vo;
     }
 
     @Override
     public List<OrderVO> listOrderVOByPatientId(Long patientId) {
         return registrationOrderMapper.selectOrderVOByPatientId(patientId);
+    }
+
+    @Override
+    public PageResult<OrderVO> pageOrderVOByPatientId(Long patientId, int page, int size) {
+        int safePage = Math.max(page, 1);
+        int safeSize = size <= 0 ? DEFAULT_PAGE_SIZE : Math.min(size, MAX_PAGE_SIZE);
+        int offset = (safePage - 1) * safeSize;
+
+        long total = registrationOrderMapper.countByPatientId(patientId);
+        List<OrderVO> list = registrationOrderMapper.selectOrderVOByPatientIdPaged(patientId, offset, safeSize);
+        return PageResult.of(list, total, safePage, safeSize);
     }
 
     @Override
@@ -98,22 +117,22 @@ public class RegistrationOrderServiceImpl implements RegistrationOrderService {
     }
 
     /**
-     * 恢复号源库存：Redis 库存回滚 + DB visibleCount 乐观锁恢复 + 移除幂等集合
+     * 恢复号源库存：Redis 库存回滚 + DB visibleCount 上限恢复 + 移除幂等集合
+     *
+     * <p>取消是低频写操作，DB 恢复使用 {@code visible_count < total_count} 的上限保护，
+     * 不再走乐观锁（避免版本号过期造成的"恢复失败"误报）。
      */
     private void restoreInventory(Long scheduleId, Long patientId) {
         // 1. 恢复 Redis 库存
         scheduleRedisConfig.incrementStock(scheduleId);
         log.info("取消订单恢复Redis库存，scheduleId={}", scheduleId);
 
-        // 2. 恢复 DB visibleCount（乐观锁）
-        DoctorSchedule schedule = doctorScheduleMapper.selectById(scheduleId);
-        if (schedule != null) {
-            int rows = doctorScheduleMapper.incrementVisibleCount(scheduleId, schedule.getVersion());
-            if (rows == 0) {
-                log.warn("恢复DB号源乐观锁冲突，scheduleId={}, version={}", scheduleId, schedule.getVersion());
-            } else {
-                log.info("恢复DB号源成功，scheduleId={}", scheduleId);
-            }
+        // 2. 恢复 DB visibleCount（仅依赖上限保护，少一次 SELECT）
+        int rows = doctorScheduleMapper.incrementVisibleCountUnchecked(scheduleId);
+        if (rows == 0) {
+            log.warn("恢复DB号源失败：可能已满或排班不存在，scheduleId={}", scheduleId);
+        } else {
+            log.info("恢复DB号源成功，scheduleId={}", scheduleId);
         }
 
         // 3. 从已抢集合中移除患者，允许再次预约同一专家

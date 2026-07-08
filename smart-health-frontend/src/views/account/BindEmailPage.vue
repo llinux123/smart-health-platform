@@ -3,7 +3,6 @@
     <van-nav-bar :title="pageTitle" left-arrow @click-left="router.back()" fixed placeholder />
 
     <div class="content">
-      <!-- 邮箱图标头部 -->
       <div class="page-header">
         <div class="header-icon email-icon">
           <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
@@ -24,11 +23,56 @@
             type="email"
             :rules="emailRules"
             clearable
+            :disabled="codeSent"
           />
+          <van-field
+            v-model="code"
+            v-if="codeSent"
+            label="验证码"
+            placeholder="请输入邮箱验证码"
+            type="digit"
+            maxlength="6"
+            :rules="codeRules"
+            clearable
+          >
+            <template #button>
+              <van-button
+                size="small"
+                type="primary"
+                :disabled="sendingCode"
+                @click="handleSendCode"
+              >
+                {{ sendingCode ? '发送中...' : sendBtnText }}
+              </van-button>
+            </template>
+          </van-field>
         </div>
 
         <div class="submit-actions">
-          <van-button block type="primary" native-type="submit" :loading="submitting" :loading-text="submitLoadingText" round size="large" class="email-submit-btn">
+          <van-button
+            v-if="!codeSent"
+            block
+            type="primary"
+            round
+            size="large"
+            :loading="sendingCode"
+            :loading-text="sendLoadingText"
+            class="email-submit-btn"
+            @click="handleSendCode"
+          >
+            发送验证码
+          </van-button>
+          <van-button
+            v-else
+            block
+            type="primary"
+            native-type="submit"
+            :loading="submitting"
+            :loading-text="submitLoadingText"
+            round
+            size="large"
+            class="email-submit-btn"
+          >
             {{ submitText }}
           </van-button>
         </div>
@@ -43,7 +87,7 @@ import { useRouter } from 'vue-router'
 import { showToast } from 'vant'
 import type { FieldRule } from 'vant/es/field/types'
 import { useUserStore } from '@/stores/user'
-import { bindEmail } from '@/api/auth'
+import { sendEmailCode, bindEmail } from '@/api/auth'
 
 const router = useRouter()
 const userStore = useUserStore()
@@ -59,20 +103,66 @@ const pageDescription = computed(() =>
 )
 const submitText = computed(() => isChangeMode.value ? '确认更换' : '确认绑定')
 const submitLoadingText = computed(() => isChangeMode.value ? '更换中...' : '绑定中...')
+const sendLoadingText = computed(() => isChangeMode.value ? '发送中...' : '发送中...')
 
 const initialEmail = userStore.profile?.email ?? ''
 const email = ref(isChangeMode.value ? initialEmail : '')
+const code = ref('')
 const submitting = ref(false)
+const sendingCode = ref(false)
+const codeSent = ref(false)
+const countdown = ref(0)
 
 const emailRules: FieldRule[] = [
   { required: true, message: '请输入邮箱地址' },
   { pattern: /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/, message: '邮箱格式不正确' }
 ]
 
+const codeRules: FieldRule[] = [
+  { required: true, message: '请输入验证码' },
+  { pattern: /^\d{6}$/, message: '验证码为6位数字' }
+]
+
+const sendBtnText = computed(() => countdown.value > 0 ? `${countdown.value}s` : '发送验证码')
+
+let countdownTimer: ReturnType<typeof setInterval> | null = null
+
+function startCountdown() {
+  countdown.value = 60
+  if (countdownTimer) clearInterval(countdownTimer)
+  countdownTimer = setInterval(() => {
+    countdown.value--
+    if (countdown.value <= 0) {
+      if (countdownTimer) clearInterval(countdownTimer)
+      countdownTimer = null
+    }
+  }, 1000)
+}
+
+async function handleSendCode() {
+  if (!email.value || !/^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(email.value)) {
+    showToast('请输入正确的邮箱地址')
+    return
+  }
+  sendingCode.value = true
+  try {
+    await sendEmailCode(email.value)
+    codeSent.value = true
+    startCountdown()
+    showToast('验证码已发送到邮箱')
+  } catch (e) {
+    console.warn('[BindEmailPage] 发送验证码失败', e)
+    const message = e instanceof Error ? e.message : '发送失败，请稍后重试'
+    showToast(message)
+  } finally {
+    sendingCode.value = false
+  }
+}
+
 async function onSubmit() {
   submitting.value = true
   try {
-    const data = await bindEmail(email.value)
+    const data = await bindEmail(email.value, code.value)
     userStore.setProfile(data)
     showToast(isChangeMode.value ? '邮箱更换成功' : '邮箱绑定成功')
     router.back()
@@ -97,7 +187,6 @@ async function onSubmit() {
   padding: 16px;
 }
 
-/* 邮箱页面专属头部 */
 .page-header {
   text-align: center;
   margin-bottom: 24px;
@@ -134,7 +223,6 @@ async function onSubmit() {
   line-height: var(--line-height-normal);
 }
 
-/* 邮箱专属表单卡片 */
 .email-form-card {
   background: var(--color-card);
   border: 1px solid #BFDBFE;

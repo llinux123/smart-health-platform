@@ -1,6 +1,6 @@
 package com.smart.health.registration.controller;
 
-import com.smart.health.common.exception.BusinessException;
+import com.smart.health.common.result.PageResult;
 import com.smart.health.common.result.Result;
 import com.smart.health.common.security.SecurityUtils;
 import com.smart.health.registration.dto.OrderVO;
@@ -89,6 +89,17 @@ public class ScheduleController {
         Long patientId = SecurityUtils.getCurrentPatientId();
         List<OrderVO> orders = registrationOrderService.listOrderVOByPatientId(patientId);
         return Result.ok(orders);
+    }
+
+    @Operation(summary = "分页查询当前患者的挂号订单列表")
+    @GetMapping("/api/v1/registration/order/page")
+    @PreAuthorize("hasRole('PATIENT')")
+    public Result<PageResult<OrderVO>> pageOrders(
+            @Parameter(description = "页码（从 1 开始）") @RequestParam(defaultValue = "1") int page,
+            @Parameter(description = "每页大小（1-100）") @RequestParam(defaultValue = "20") int size) {
+        Long patientId = SecurityUtils.getCurrentPatientId();
+        PageResult<OrderVO> result = registrationOrderService.pageOrderVOByPatientId(patientId, page, size);
+        return Result.ok(result);
     }
 
     @Operation(summary = "取消订单")

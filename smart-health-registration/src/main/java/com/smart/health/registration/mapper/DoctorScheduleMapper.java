@@ -63,4 +63,14 @@ public interface DoctorScheduleMapper {
     @Update("UPDATE t_doctor_schedule SET visible_count = visible_count + 1, version = version + 1 " +
             "WHERE id = #{id} AND version = #{version} AND visible_count < total_count")
     int incrementVisibleCount(@Param("id") Long id, @Param("version") Integer version);
+
+    /**
+     * 无条件恢复号源（取消订单时调用）。
+     * 仅依赖 {@code visible_count < total_count} 上限保护，
+     * 适用于：版本号已被并发抢占、但取消本身是低频写操作的场景。
+     * 比乐观锁路径少一次 SELECT。
+     */
+    @Update("UPDATE t_doctor_schedule SET visible_count = visible_count + 1, version = version + 1 " +
+            "WHERE id = #{id} AND visible_count < total_count")
+    int incrementVisibleCountUnchecked(@Param("id") Long id);
 }

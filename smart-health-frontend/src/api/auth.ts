@@ -80,8 +80,12 @@ export function bindIdentity(data: BindIdentityData) {
   return request.post<ProfileData>('/api/v1/auth/bind-identity', data)
 }
 
-export function bindEmail(email: string) {
-  return request.post<ProfileData>('/api/v1/auth/bind-email', { email })
+export function sendEmailCode(email: string) {
+  return request.post('/api/v1/auth/send-email-code', { email })
+}
+
+export function bindEmail(email: string, code: string) {
+  return request.post<ProfileData>('/api/v1/auth/bind-email', { email, code })
 }
 
 export function resetPassword(data: ResetPasswordData) {
