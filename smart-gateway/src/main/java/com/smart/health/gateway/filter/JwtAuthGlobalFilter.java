@@ -97,7 +97,11 @@ public class JwtAuthGlobalFilter implements GlobalFilter, Ordered {
     private Mono<Void> unauthorizedResponse(ServerWebExchange exchange, String message) {
         ServerHttpResponse response = exchange.getResponse();
         response.setStatusCode(HttpStatus.UNAUTHORIZED);
-        response.getHeaders().setContentType(MediaType.APPLICATION_JSON);
+        response.getHeaders().setContentType(
+                new org.springframework.http.MediaType(
+                        org.springframework.http.MediaType.APPLICATION_JSON,
+                        java.nio.charset.StandardCharsets.UTF_8));
+        response.getHeaders().set(HttpHeaders.CONTENT_ENCODING, null);
         String body = "{\"code\":401,\"message\":\"" + message + "\",\"data\":null}";
         DataBuffer buffer = response.bufferFactory().wrap(body.getBytes(StandardCharsets.UTF_8));
         return response.writeWith(Mono.just(buffer));
