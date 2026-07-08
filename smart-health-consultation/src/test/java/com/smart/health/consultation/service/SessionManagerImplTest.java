@@ -7,6 +7,7 @@ import com.smart.health.consultation.constant.SessionStatus;
 import com.smart.health.consultation.entity.ConsultationSession;
 import com.smart.health.consultation.mapper.ConsultationSessionMapper;
 import com.smart.health.consultation.mapper.ConsultationTurnMapper;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.smart.health.consultation.service.impl.SessionManagerImpl;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -16,6 +17,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
@@ -26,8 +28,14 @@ import java.util.regex.Pattern;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+
+import com.smart.health.consultation.dto.PreConsultationEmrDTO;
+import java.util.Collections;
 
 /**
  * SessionManagerImpl — 会话生命周期管理单元测试
@@ -62,12 +70,65 @@ class SessionManagerImplTest {
     @Mock
     private DistributedSequenceGenerator sequenceGenerator;
 
+    @Mock
+    private PreConsultationEmrGenerator emrGenerator;
+
+    @Mock
+    private TransactionTemplate transactionTemplate;
+
+    private ObjectMapper objectMapper;
+
     private SessionManagerImpl sessionManager;
 
     @BeforeEach
     void setUp() {
+        objectMapper = new ObjectMapper();
         sessionManager = new SessionManagerImpl(sessionMapper, turnMapper,
-                sessionAccessor, sessionVOAssembler, sequenceGenerator);
+                sessionAccessor, sessionVOAssembler, sequenceGenerator, emrGenerator, objectMapper,
+                transactionTemplate);
+        // 让 TransactionTemplate.executeWithoutResult 真正执行回调（lenient 避免 CreateSession 测试报 unnecessary stubbing）
+        lenient().doAnswer(invocation -> {
+            java.util.function.Consumer<org.springframework.transaction.TransactionStatus> callback =
+                    invocation.getArgument(0);
+            callback.accept(null);
+            return null;
+        }).when(transactionTemplate).executeWithoutResult(any());
+    }
+
+    @Nested
+    @DisplayName("completeSession — 结束问诊")
+    class CompleteSession {
+
+        @Test
+        @DisplayName("结束时生成结构化 EMR 并保存到 ai_summary")
+        void completeSession_generatesAndSavesEmr() {
+            // Arrange
+            ConsultationSession session = buildInProgressSession("session_20260707_000001");
+            when(sessionAccessor.findAndValidate("session_20260707_000001", 42L)).thenReturn(session);
+            when(turnMapper.selectBySessionSnDesc("session_20260707_000001")).thenReturn(Collections.emptyList());
+            PreConsultationEmrDTO emr = new PreConsultationEmrDTO("头痛", "头痛三天", "无", "无", "头颅CT");
+            when(emrGenerator.generate(Collections.emptyList(), "头痛")).thenReturn(emr);
+
+            // Act
+            sessionManager.completeSession("session_20260707_000001", 42L);
+
+            // Assert
+            ArgumentCaptor<String> captor = ArgumentCaptor.forClass(String.class);
+            verify(sessionMapper).updateAiSummary(eq(session.getId()), captor.capture());
+            String savedJson = captor.getValue();
+            assertThat(savedJson).contains("\"chiefComplaint\":\"头痛\"");
+            assertThat(savedJson).contains("\"presentIllness\":\"头痛三天\"");
+        }
+
+        private ConsultationSession buildInProgressSession(String sessionSn) {
+            ConsultationSession session = new ConsultationSession();
+            session.setId(1L);
+            session.setSessionSn(sessionSn);
+            session.setPatientId(42L);
+            session.setSymptomDraft("头痛");
+            session.setStatus(SessionStatus.IN_PROGRESS);
+            return session;
+        }
     }
 
     @Nested

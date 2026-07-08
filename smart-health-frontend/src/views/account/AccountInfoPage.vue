@@ -176,17 +176,84 @@ function onAvatarClick() {
 const avatarFileList = ref([])
 const uploaderRef = ref<UploaderInstance | null>(null)
 
+/** 将 File 转换为 base64 data URL */
+function fileToDataUrl(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => resolve(reader.result as string)
+    reader.onerror = () => reject(new Error('文件读取失败'))
+    reader.readAsDataURL(file)
+  })
+}
+
+/** 限制 base64 字符串最大长度（500KB ≈ 500000 字符） */
+const MAX_BASE64_LENGTH = 500000
+
+/** 使用 Canvas 压缩图片 */
+function compressImage(dataUrl: string, maxWidth = 800, quality = 0.8): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const img = new Image()
+    img.onload = () => {
+      const canvas = document.createElement('canvas')
+      const ratio = Math.min(maxWidth / img.width, maxWidth / img.height, 1)
+      canvas.width = img.width * ratio
+      canvas.height = img.height * ratio
+      const ctx = canvas.getContext('2d')
+      if (!ctx) {
+        resolve(dataUrl) // 降级返回原图
+        return
+      }
+      ctx.fillStyle = '#FFFFFF'
+      ctx.fillRect(0, 0, canvas.width, canvas.height)
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height)
+      const compressedDataUrl = canvas.toDataURL('image/jpeg', quality)
+      resolve(compressedDataUrl)
+    }
+    img.onerror = () => reject(new Error('图片加载失败'))
+    img.src = dataUrl
+  })
+}
+
+/** 确保 base64 字符串不超过阈值 */
+async function ensureBase64Limit(dataUrl: string): Promise<string> {
+  if (dataUrl.length <= MAX_BASE64_LENGTH) {
+    return dataUrl
+  }
+  // 第一次压缩
+  let compressed = await compressImage(dataUrl, 800, 0.8)
+  if (compressed.length <= MAX_BASE64_LENGTH) {
+    return compressed
+  }
+  // 第二次更激进压缩
+  compressed = await compressImage(compressed, 480, 0.6)
+  if (compressed.length <= MAX_BASE64_LENGTH) {
+    return compressed
+  }
+  // 仍然超长则抛出错误
+  throw new Error('图片太大，请选择一张小于 2MB 的图片')
+}
+
 async function onAvatarRead(items: UploaderFileListItem | UploaderFileListItem[]) {
   const file = Array.isArray(items) ? items[0] : items
   if (!file?.file) return
   try {
-    // TODO: 需要先通过文件上传接口获取永久 URL，再调用 updateAvatar
-    const url = URL.createObjectURL(file.file)
-    const data = await updateAvatar(url)
+    let dataUrl = await fileToDataUrl(file.file)
+    // 自动压缩超出限制的 base64 字符串
+    dataUrl = await ensureBase64Limit(dataUrl)
+    const data = await updateAvatar(dataUrl)
     userStore.setProfile(data)
     showToast('头像更新成功')
-  } catch (e) {
+  } catch (e: any) {
     console.warn('[AccountInfoPage] 头像更新失败', e)
+    if (e.message?.includes('图片太大')) {
+      showToast(e.message)
+    } else if (e.response?.status === 414) {
+      showToast('图片太大，请重新选择较小的图片')
+    } else if (e.response?.status === 400) {
+      showToast(e.response?.data?.message || '头像上传失败，格式不支持')
+    } else {
+      showToast('头像更新失败，请稍后重试')
+    }
   }
 }
 
@@ -219,8 +286,7 @@ function onPhoneClick() {
 }
 
 function onEmailClick() {
-  const hasEmail = !!profile.value.email
-  showToast(hasEmail ? '更换邮箱功能即将上线' : '绑定邮箱功能即将上线')
+  router.push('/account/bind-email')
 }
 
 function onIdCardClick() {

@@ -52,6 +52,7 @@ public class DoctorConsultServiceImpl implements DoctorConsultService {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public DoctorConsultDetailVO getDetail(String sessionSn) {
         ConsultationSession session = findSession(sessionSn);
         List<ConsultationTurn> turns = turnMapper.selectBySessionSnDesc(sessionSn);
@@ -71,6 +72,7 @@ public class DoctorConsultServiceImpl implements DoctorConsultService {
                 .patientGender(gender != null ? gender : 0)
                 .patientAge(age)
                 .symptomDraft(session.getSymptomDraft())
+                .aiSummary(session.getAiSummary())
                 .fileUrls(fileUrls)
                 .status(session.getStatus())
                 .turns(turnVOs)

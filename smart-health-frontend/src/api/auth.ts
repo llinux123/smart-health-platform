@@ -29,7 +29,6 @@ export interface BindIdentityData {
   realName: string
   idCard: string
   gender: number
-  email?: string
   idCardFrontUrl?: string
   idCardBackUrl?: string
   faceRecognitionUrl?: string
@@ -81,6 +80,10 @@ export function bindIdentity(data: BindIdentityData) {
   return request.post<ProfileData>('/api/v1/auth/bind-identity', data)
 }
 
+export function bindEmail(email: string) {
+  return request.post<ProfileData>('/api/v1/auth/bind-email', { email })
+}
+
 export function resetPassword(data: ResetPasswordData) {
   return request.post('/api/v1/auth/reset-password', data)
 }
@@ -94,7 +97,7 @@ export function updateUsername(username: string) {
 }
 
 export function updateAvatar(avatarUrl: string) {
-  return request.post<ProfileData>('/api/v1/auth/update-avatar', null, { params: { avatarUrl } })
+  return request.post<ProfileData>('/api/v1/auth/update-avatar', { avatarUrl })
 }
 
 export function logout() {

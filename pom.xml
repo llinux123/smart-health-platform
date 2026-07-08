@@ -44,6 +44,7 @@
         <spring-cloud.version>2023.0.1</spring-cloud.version>
         <spring-cloud-alibaba.version>2023.0.1.0</spring-cloud-alibaba.version>
         <spring-dotenv.version>4.0.0</spring-dotenv.version>
+        <aliyun-sms.version>2.0.24</aliyun-sms.version>
     </properties>
 
     <dependencyManagement>
@@ -160,6 +161,13 @@
                 <artifactId>spring-dotenv</artifactId>
                 <version>${spring-dotenv.version}</version>
             </dependency>
+
+            <!-- Aliyun SMS SDK (V2) -->
+            <dependency>
+                <groupId>com.aliyun</groupId>
+                <artifactId>dysmsapi20170525</artifactId>
+                <version>${aliyun-sms.version}</version>
+            </dependency>
         </dependencies>
     </dependencyManagement>
 
@@ -183,6 +191,13 @@
                     <source>${java.version}</source>
                     <target>${java.version}</target>
                     <encoding>UTF-8</encoding>
+                    <annotationProcessorPaths>
+                        <path>
+                            <groupId>org.projectlombok</groupId>
+                            <artifactId>lombok</artifactId>
+                            <version>${lombok.version}</version>
+                        </path>
+                    </annotationProcessorPaths>
                 </configuration>
             </plugin>
         </plugins>

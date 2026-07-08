@@ -40,6 +40,7 @@ public class SecurityConfig {
             "/api/v1/auth/login/sms",
             "/api/v1/auth/send-code",
             "/api/v1/auth/reset-password",
+            "/api/v1/auth/avatars/**",
             "/doc.html",
             "/webjars/**",
             "/v3/api-docs/**",

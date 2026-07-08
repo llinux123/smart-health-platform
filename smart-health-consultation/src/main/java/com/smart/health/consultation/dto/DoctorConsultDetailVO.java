@@ -34,6 +34,9 @@ public class DoctorConsultDetailVO {
     @Schema(description = "症状自查草稿（AI分析报告）")
     private String symptomDraft;
 
+    @Schema(description = "结构化预问诊电子病历（JSON 字符串）")
+    private String aiSummary;
+
     @Schema(description = "上传文件URL列表")
     private List<String> fileUrls;
 

@@ -73,10 +73,16 @@ public class AuthController {
         return Result.ok("登出成功", null);
     }
 
-    @Operation(summary = "身份绑定", description = "患者绑定实名信息（真实姓名、身份证、性别、邮箱、身份证照片、人脸识别）")
+    @Operation(summary = "身份绑定", description = "患者绑定实名信息（真实姓名、身份证、性别、身份证照片、人脸识别）")
     @PostMapping("/bind-identity")
     public Result<ProfileResponse> bindIdentity(@Valid @RequestBody BindIdentityRequest request) {
         return Result.ok("身份绑定成功", patientAuthService.bindIdentity(request));
+    }
+
+    @Operation(summary = "绑定邮箱", description = "患者独立绑定邮箱（与实名认证分离）")
+    @PostMapping("/bind-email")
+    public Result<ProfileResponse> bindEmail(@Valid @RequestBody BindEmailRequest request) {
+        return Result.ok("邮箱绑定成功", patientAuthService.bindEmail(request.getEmail()));
     }
 
     @Operation(summary = "更新用户名", description = "更新当前患者用户名")
@@ -87,8 +93,8 @@ public class AuthController {
 
     @Operation(summary = "更新头像", description = "更新当前患者头像")
     @PostMapping("/update-avatar")
-    public Result<ProfileResponse> updateAvatar(@RequestParam String avatarUrl) {
-        return Result.ok("头像更新成功", patientAuthService.updateAvatar(avatarUrl));
+    public Result<ProfileResponse> updateAvatar(@Valid @RequestBody UpdateAvatarRequest request) {
+        return Result.ok("头像更新成功", patientAuthService.updateAvatar(request.getAvatarUrl()));
     }
 
     @Operation(summary = "重置密码", description = "通过短信验证码重置密码")

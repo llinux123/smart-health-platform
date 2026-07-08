@@ -1,5 +1,8 @@
 server:
   port: 9000
+  # 增加 URI 长度限制以支持 base64 请求体（默认 8KB）
+  netty:
+    max-initial-line-length: 16KB
 
 spring:
   application:
@@ -34,8 +37,8 @@ spring:
           predicates:
             - Path=/api/v1/admin/patients/**
 
-        - id: user-service-dashboard
-          uri: lb://user-service
+        - id: app-service-dashboard
+          uri: lb://smart-health-platform
           predicates:
             - Path=/api/v1/dashboard/**
 

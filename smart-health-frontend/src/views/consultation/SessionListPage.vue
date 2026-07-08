@@ -9,6 +9,23 @@ import EmptyState from '@/components/EmptyState.vue'
 const router = useRouter()
 const store = useConsultationStore()
 
+// ============ 分组 ============
+const groupedSessions = computed(() => {
+  const active: SessionInfo[] = []
+  const completed: SessionInfo[] = []
+  for (const s of store.sessionList) {
+    if (s.status === 'COMPLETED') {
+      completed.push(s)
+    } else {
+      active.push(s)
+    }
+  }
+  const sortFn = (a: SessionInfo, b: SessionInfo) => (a.isPinned === b.isPinned ? 0 : a.isPinned ? -1 : 1)
+  active.sort(sortFn)
+  completed.sort(sortFn)
+  return { active, completed }
+})
+
 // ============ 搜索与筛选 ============
 const keyword = ref('')
 const startDate = ref('')
@@ -106,12 +123,6 @@ function onDateConfirm({ selectedValues }: { selectedValues: string[] }) {
   onSearch()
 }
 
-function clearDate(type: 'start' | 'end') {
-  if (type === 'start') startDate.value = ''
-  else endDate.value = ''
-  onSearch()
-}
-
 // ============ 导航 ============
 function goToChat(session: SessionInfo) {
   router.push(`/consultation/chat/${session.sessionSn}`)
@@ -175,9 +186,7 @@ async function handleDelete(session: SessionInfo) {
     } else {
       confirmPermanentDelete(session)
     }
-  }).catch(() => {
-    // 用户通过遮罩层或返回键关闭弹窗，不做处理
-  })
+  }).catch(() => {})
 }
 
 async function confirmPermanentDelete(session: SessionInfo) {
@@ -188,9 +197,7 @@ async function confirmPermanentDelete(session: SessionInfo) {
     cancelButtonText: '取消'
   }).then(() => {
     doDelete(session, 'permanent')
-  }).catch(() => {
-    // 用户取消，不做处理
-  })
+  }).catch(() => {})
 }
 
 async function doDelete(session: SessionInfo, mode: 'recycle' | 'permanent') {
@@ -199,7 +206,7 @@ async function doDelete(session: SessionInfo, mode: 'recycle' | 'permanent') {
     await store.deleteSessionItem(session.sessionSn, mode)
     closeToast()
     showToast(mode === 'recycle' ? '已移入回收站' : '已彻底删除')
-  } catch (e) {
+  } catch {
     closeToast()
     showToast('删除失败，请重试')
   }
@@ -210,10 +217,17 @@ function getStatusText(status: string) {
   return getConsultationStatus(status).text
 }
 
-function getStatusClass(status: string) {
-  if (status === 'IN_PROGRESS' || status === 'DOCTOR_ACTIVE') return 'status--active'
-  if (status === 'PENDING_DOCTOR') return 'status--handoff'
-  return 'status--done'
+function getAccentBar(status: string) {
+  if (status === 'IN_PROGRESS' || status === 'DOCTOR_ACTIVE') return 'accent--teal'
+  if (status === 'PENDING_DOCTOR') return 'accent--amber'
+  return 'accent--muted'
+}
+
+function getPulseDot(status: string) {
+  if (status === 'IN_PROGRESS') return 'pulse--teal'
+  if (status === 'DOCTOR_ACTIVE') return 'pulse--teal'
+  if (status === 'PENDING_DOCTOR') return 'pulse--amber'
+  return ''
 }
 
 function hasActiveFilter() {
@@ -222,19 +236,19 @@ function hasActiveFilter() {
 </script>
 
 <template>
-  <div class="session-list-page page-container">
+  <div class="session-list-page">
     <!-- 顶部导航栏 -->
-    <van-nav-bar title="问诊记录">
+    <van-nav-bar title="问诊记录" fixed placeholder>
       <template #left>
-        <van-icon name="replay" size="18" @click="goToRecycleBin" />
+        <van-icon name="delete-o" size="18" @click="goToRecycleBin" />
       </template>
       <template #right>
         <van-icon name="plus" size="20" @click="createNewSession" />
       </template>
     </van-nav-bar>
 
-    <!-- 搜索栏 -->
-    <div class="search-section">
+    <!-- 搜索与筛选区 -->
+    <div class="header-area">
       <van-search
         v-model="keyword"
         placeholder="搜索症状描述或AI总结"
@@ -242,134 +256,176 @@ function hasActiveFilter() {
         @search="onSearch"
         @clear="onClearSearch"
       />
-      <div class="filter-row">
-        <div class="filter-chips">
-          <van-tag
-            :plain="statusFilter !== 'IN_PROGRESS'"
-            type="primary"
-            round
-            class="filter-chip"
+      <div class="filter-bar">
+        <div class="filter-scroll">
+          <button
+            class="chip"
+            :class="{ 'chip--active': statusFilter === 'IN_PROGRESS' }"
             @click="statusFilter = statusFilter === 'IN_PROGRESS' ? '' : 'IN_PROGRESS'; onSearch()"
           >
+            <span v-if="statusFilter === 'IN_PROGRESS'" class="chip__dot chip__dot--teal" />
             问诊中
-          </van-tag>
-          <van-tag
-            :plain="statusFilter !== 'COMPLETED'"
-            color="var(--color-text-secondary)"
-            text-color="#fff"
-            round
-            class="filter-chip"
+          </button>
+          <button
+            class="chip"
+            :class="{ 'chip--active': statusFilter === 'COMPLETED' }"
             @click="statusFilter = statusFilter === 'COMPLETED' ? '' : 'COMPLETED'; onSearch()"
           >
+            <span v-if="statusFilter === 'COMPLETED'" class="chip__dot chip__dot--muted" />
             已结束
-          </van-tag>
-          <van-tag
-            plain
-            type="default"
-            round
-            class="filter-chip"
+          </button>
+          <button
+            class="chip chip--default"
             @click="openDatePicker('start')"
           >
+            <van-icon name="calendar-o" size="12" />
             {{ startDate || '开始日期' }}
-          </van-tag>
-          <van-tag
-            plain
-            type="default"
-            round
-            class="filter-chip"
+          </button>
+          <button
+            class="chip chip--default"
             @click="openDatePicker('end')"
           >
+            <van-icon name="calendar-o" size="12" />
             {{ endDate || '结束日期' }}
-          </van-tag>
+          </button>
         </div>
-        <van-button
+        <button
           v-if="hasActiveFilter()"
-          size="mini"
-          plain
-          type="default"
-          round
+          class="chip-clear"
           @click="onClearSearch"
         >
           清除
-        </van-button>
+        </button>
       </div>
     </div>
 
     <!-- 列表区域 -->
-    <div class="session-list-wrapper" ref="listRef">
+    <div class="list-area" ref="listRef">
       <van-loading v-if="store.sessionLoading && store.sessionList.length === 0" class="page-loading" />
 
       <EmptyState
         v-else-if="!store.sessionLoading && store.sessionList.length === 0"
-        description="暂无问诊记录"
-        action-text="开始新问诊"
+        description="还没有问诊记录"
+        action-text="开始首次问诊"
         @action="createNewSession"
       />
 
-      <div v-else class="session-list">
-        <div
-          v-for="session in store.sessionList"
-          :key="session.sessionSn"
-          class="session-card"
-          :class="{ 'session-card--pinned': session.isPinned }"
-          @click="goToChat(session)"
-          @touchstart="onTouchStart(session)"
-          @touchend="onTouchEnd"
-          @touchcancel="onTouchEnd"
-        >
-          <van-swipe-cell :stop-propagation="true">
-            <div class="session-card__content">
-              <!-- 置顶标记 -->
-              <div v-if="session.isPinned" class="pin-indicator">
-                <van-icon name="flag-o" size="12" />
-                <span>已置顶</span>
+      <div v-else class="session-groups">
+        <!-- 进行中 -->
+        <template v-if="groupedSessions.active.length">
+          <div class="section-label">进行中</div>
+          <div
+            v-for="session in groupedSessions.active"
+            :key="session.sessionSn"
+            class="session-card"
+            @click="goToChat(session)"
+            @touchstart="onTouchStart(session)"
+            @touchend="onTouchEnd"
+            @touchcancel="onTouchEnd"
+          >
+            <van-swipe-cell :stop-propagation="true">
+              <div class="session-card__inner">
+                <div :class="['accent-bar', getAccentBar(session.status)]" />
+
+                <div class="session-card__body">
+                  <div class="session-card__header">
+                    <h3 class="session-card__title">
+                      <span v-if="session.isPinned" class="pin-mark">📌</span>
+                      {{ session.symptomDraftSummary || '新问诊' }}
+                    </h3>
+                    <div class="status-cell">
+                      <span v-if="getPulseDot(session.status)" :class="['pulse-dot', getPulseDot(session.status)]" />
+                      <span :class="['status-tag', session.status === 'COMPLETED' ? 'status-tag--done' : 'status-tag--active']">
+                        {{ getStatusText(session.status) }}
+                      </span>
+                    </div>
+                  </div>
+
+                  <p v-if="session.aiSummary" class="session-card__summary">
+                    {{ session.aiSummary }}
+                  </p>
+
+                  <div class="session-card__meta">
+                    <span>{{ session.turnCount || 0 }} 轮对话</span>
+                    <span class="meta-sep" />
+                    <span>{{ formatRelativeTime(session.lastChatTime || session.createTime) }}</span>
+                    <span v-if="session.hasRating" class="rating-mark">
+                      <van-icon name="star" size="11" /> 已评
+                    </span>
+                  </div>
+                </div>
+
+                <van-icon name="arrow" class="session-card__chevron" />
               </div>
 
-              <!-- 主体内容 -->
-              <div class="session-card__body">
-                <div class="session-card__header">
-                  <h3 class="session-card__title">
-                    {{ session.symptomDraftSummary || '新问诊' }}
-                  </h3>
-                  <span :class="['session-card__status', getStatusClass(session.status)]">
-                    {{ getStatusText(session.status) }}
-                  </span>
+              <template #right>
+                <van-button square type="danger" class="swipe-btn" @click.stop="handleDelete(session)">
+                  <van-icon name="delete-o" size="18" />
+                </van-button>
+              </template>
+            </van-swipe-cell>
+          </div>
+        </template>
+
+        <!-- 已完成 -->
+        <template v-if="groupedSessions.completed.length">
+          <div class="section-label section-label--muted">历史记录</div>
+          <div
+            v-for="session in groupedSessions.completed"
+            :key="session.sessionSn"
+            class="session-card"
+            @click="goToChat(session)"
+            @touchstart="onTouchStart(session)"
+            @touchend="onTouchEnd"
+            @touchcancel="onTouchEnd"
+          >
+            <van-swipe-cell :stop-propagation="true">
+              <div class="session-card__inner">
+                <div :class="['accent-bar', getAccentBar(session.status)]" />
+
+                <div class="session-card__body">
+                  <div class="session-card__header">
+                    <h3 class="session-card__title">
+                      <span v-if="session.isPinned" class="pin-mark">📌</span>
+                      {{ session.symptomDraftSummary || '新问诊' }}
+                    </h3>
+                    <div class="status-cell">
+                      <span :class="['status-tag', 'status-tag--done']">
+                        {{ getStatusText(session.status) }}
+                      </span>
+                    </div>
+                  </div>
+
+                  <p v-if="session.aiSummary" class="session-card__summary">
+                    {{ session.aiSummary }}
+                  </p>
+
+                  <div class="session-card__meta">
+                    <span>{{ session.turnCount || 0 }} 轮对话</span>
+                    <span class="meta-sep" />
+                    <span>{{ formatRelativeTime(session.lastChatTime || session.createTime) }}</span>
+                    <span v-if="session.hasRating" class="rating-mark">
+                      <van-icon name="star" size="11" /> 已评
+                    </span>
+                  </div>
                 </div>
-                <p v-if="session.aiSummary" class="session-card__summary">
-                  {{ session.aiSummary }}
-                </p>
-                <div class="session-card__meta">
-                  <span>{{ session.turnCount || 0 }} 轮对话</span>
-                  <span class="meta-dot">·</span>
-                  <span>{{ formatRelativeTime(session.lastChatTime || session.createTime) }}</span>
-                  <span v-if="session.hasRating" class="rating-badge">
-                    <van-icon name="star" size="12" /> 已评
-                  </span>
-                </div>
+
+                <van-icon name="arrow" class="session-card__chevron" />
               </div>
 
-              <!-- 右箭头 -->
-              <van-icon name="arrow" class="session-card__arrow" />
-            </div>
-
-            <!-- 左滑删除 -->
-            <template #right>
-              <van-button
-                square
-                type="danger"
-                class="swipe-delete-btn"
-                @click.stop="handleDelete(session)"
-              >
-                <van-icon name="delete-o" size="18" />
-              </van-button>
-            </template>
-          </van-swipe-cell>
-        </div>
+              <template #right>
+                <van-button square type="danger" class="swipe-btn" @click.stop="handleDelete(session)">
+                  <van-icon name="delete-o" size="18" />
+                </van-button>
+              </template>
+            </van-swipe-cell>
+          </div>
+        </template>
 
         <!-- 加载更多 -->
-        <div class="load-more-area">
+        <div class="load-more">
           <van-loading v-if="store.sessionLoading" size="20" />
-          <van-empty v-else-if="finished && store.sessionList.length > 0" description="没有更多了" image="search" />
+          <p v-else-if="finished && store.sessionList.length > 0" class="load-more__text">没有更多了</p>
         </div>
       </div>
     </div>
@@ -395,6 +451,12 @@ function hasActiveFilter() {
 </template>
 
 <style scoped>
+/* ============================================
+   问诊记录列表 — SessionListPage
+   设计概念：生命体征（Vital Sign）
+   患者健康对话历史的平静、精确视图
+   ============================================ */
+
 .session-list-page {
   display: flex;
   flex-direction: column;
@@ -402,41 +464,116 @@ function hasActiveFilter() {
   background: var(--color-bg);
 }
 
-/* ============ 搜索区域 ============ */
-.search-section {
+/* ============ 搜索与筛选区 ============ */
+.header-area {
   background: var(--color-card);
-  padding-bottom: var(--spacing-sm);
-  border-bottom: 1px solid var(--color-divider);
+  border-bottom: 1px solid var(--color-card-border);
+  flex-shrink: 0;
 }
 
-.filter-row {
+.filter-bar {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  padding: 0 var(--spacing-md);
   gap: var(--spacing-sm);
+  padding: 0 var(--spacing-md) var(--spacing-sm);
 }
 
-.filter-chips {
+.filter-scroll {
   display: flex;
-  flex-wrap: wrap;
   gap: 6px;
+  flex: 1;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  padding-bottom: 2px;
 }
 
-.filter-chip {
-  cursor: pointer;
+.filter-scroll::-webkit-scrollbar {
+  display: none;
+}
+
+/* ============ 筛选标签（自定义 chip） ============ */
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 5px 12px;
+  border-radius: var(--radius-full);
   font-size: var(--font-size-caption);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-secondary);
+  background: var(--color-bg-alt);
+  border: 1px solid transparent;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  flex-shrink: 0;
+}
+
+.chip--active {
+  color: var(--color-primary);
+  background: var(--color-primary-light);
+  border-color: var(--color-primary);
+}
+
+.chip--default {
+  color: var(--color-text-tertiary);
+  background: transparent;
+  border: 1px dashed var(--color-card-border);
+}
+
+.chip__dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.chip__dot--teal {
+  background: var(--color-primary);
+}
+
+.chip__dot--muted {
+  background: var(--color-text-tertiary);
+}
+
+.chip-clear {
+  flex-shrink: 0;
+  padding: 5px 10px;
+  border-radius: var(--radius-full);
+  font-size: var(--font-size-caption);
+  color: var(--color-signal);
+  background: none;
+  border: 1px solid var(--color-signal);
+  cursor: pointer;
+  white-space: nowrap;
 }
 
 /* ============ 列表区域 ============ */
-.session-list-wrapper {
+.list-area {
   flex: 1;
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
 }
 
-.session-list {
+.session-groups {
   padding: var(--spacing-md);
+}
+
+/* ============ 分组标签 ============ */
+.section-label {
+  font-size: var(--font-size-caption);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-secondary);
+  text-transform: uppercase;
+  letter-spacing: var(--letter-spacing-wide);
+  padding: var(--spacing-sm) 0;
+  margin-bottom: 2px;
+}
+
+.section-label--muted {
+  color: var(--color-text-tertiary);
+  margin-top: var(--spacing-lg);
 }
 
 /* ============ 会话卡片 ============ */
@@ -444,37 +581,50 @@ function hasActiveFilter() {
   margin-bottom: var(--spacing-sm);
   border-radius: var(--radius-md);
   background: var(--color-card);
-  box-shadow: var(--shadow-card);
-  transition: transform var(--transition-fast), box-shadow var(--transition-fast);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+  overflow: hidden;
+  transition: box-shadow var(--transition-fast), transform var(--transition-fast);
 }
 
 .session-card:active {
-  transform: scale(0.98);
+  transform: scale(0.985);
 }
 
-.session-card--pinned {
-  border-left: 3px solid var(--color-primary);
-}
-
-.session-card__content {
+.session-card__inner {
   display: flex;
-  align-items: center;
-  padding: var(--spacing-md);
-  gap: var(--spacing-sm);
+  align-items: stretch;
+  min-height: 72px;
 }
 
-.pin-indicator {
-  display: flex;
-  align-items: center;
-  gap: 2px;
-  font-size: var(--font-size-small);
-  color: var(--color-primary);
-  margin-bottom: 4px;
+/* 状态色条（左侧竖线） */
+.accent-bar {
+  width: 3px;
+  flex-shrink: 0;
+  border-radius: 2px 0 0 2px;
+  margin: 10px 0;
 }
 
+.accent--teal {
+  background: var(--color-primary);
+}
+
+.accent--amber {
+  background: #f59e0b;
+}
+
+.accent--muted {
+  background: var(--color-card-border);
+}
+
+/* 主体内容 */
 .session-card__body {
   flex: 1;
   min-width: 0;
+  padding: var(--spacing-sm) var(--spacing-md);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 2px;
 }
 
 .session-card__header {
@@ -486,97 +636,142 @@ function hasActiveFilter() {
 
 .session-card__title {
   font-size: var(--font-size-card-title);
-  font-weight: var(--font-weight-medium);
+  font-weight: var(--font-weight-semibold);
   color: var(--color-text);
   line-height: var(--line-height-tight);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
   flex: 1;
+  margin: 0;
 }
 
-.session-card__status {
+.pin-mark {
+  margin-right: 2px;
+  font-size: 13px;
+}
+
+/* 状态标签 + 脉冲点 */
+.status-cell {
+  display: flex;
+  align-items: center;
+  gap: 5px;
   flex-shrink: 0;
-  font-size: var(--font-size-small);
+}
+
+.status-tag {
+  font-size: 11px;
   padding: 2px 8px;
   border-radius: var(--radius-full);
   font-weight: var(--font-weight-medium);
+  white-space: nowrap;
 }
 
-.status--active {
+.status-tag--active {
   background: var(--color-primary-light);
   color: var(--color-primary-dark);
 }
 
-.status--done {
+.status-tag--done {
   background: var(--color-bg-alt);
   color: var(--color-text-tertiary);
 }
 
-.status--handoff {
-  background: #fff3e0;
-  color: #e65100;
+/* 脉冲圆点 */
+.pulse-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  flex-shrink: 0;
 }
 
+.pulse--teal {
+  background: var(--color-primary);
+  animation: pulse-teal 2s ease-in-out infinite;
+}
+
+.pulse--amber {
+  background: #f59e0b;
+  animation: pulse-amber 2s ease-in-out infinite;
+}
+
+@keyframes pulse-teal {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.35; transform: scale(0.85); }
+}
+
+@keyframes pulse-amber {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.3; transform: scale(0.8); }
+}
+
+/* AI 摘要 */
 .session-card__summary {
   font-size: var(--font-size-caption);
   color: var(--color-text-secondary);
-  margin-top: 4px;
+  line-height: var(--line-height-normal);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  line-height: var(--line-height-normal);
+  margin: 0;
 }
 
+/* 元信息行 */
 .session-card__meta {
   display: flex;
   align-items: center;
-  gap: 4px;
-  margin-top: 6px;
+  gap: 6px;
   font-size: var(--font-size-caption);
   color: var(--color-text-tertiary);
 }
 
-.meta-dot {
-  font-size: 8px;
+.meta-sep {
+  width: 3px;
+  height: 3px;
+  border-radius: 50%;
+  background: var(--color-card-border);
+  flex-shrink: 0;
 }
 
-.rating-badge {
+.rating-mark {
   display: inline-flex;
   align-items: center;
   gap: 2px;
   color: var(--color-warning);
-  margin-left: 4px;
+  margin-left: 2px;
 }
 
-.session-card__arrow {
+/* 右箭头 */
+.session-card__chevron {
   flex-shrink: 0;
+  align-self: center;
+  margin-right: var(--spacing-sm);
   color: var(--color-text-tertiary);
-  font-size: 16px;
+  font-size: 14px;
 }
 
 /* ============ 左滑删除按钮 ============ */
-.swipe-delete-btn {
+.swipe-btn {
   height: 100%;
 }
 
 /* ============ 加载更多 ============ */
-.load-more-area {
-  padding: var(--spacing-md) 0;
+.load-more {
+  padding: var(--spacing-lg) 0;
   display: flex;
   justify-content: center;
 }
 
-.load-more-area :deep(.van-empty) {
-  padding: 0;
-}
-
-.load-more-area :deep(.van-empty__image) {
-  display: none;
-}
-
-.load-more-area :deep(.van-empty__description) {
+.load-more__text {
   font-size: var(--font-size-caption);
   color: var(--color-text-tertiary);
+  margin: 0;
+}
+
+/* ============ 全页加载 ============ */
+.page-loading {
+  display: flex;
+  justify-content: center;
+  padding-top: 120px;
 }
 </style>

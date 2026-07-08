@@ -184,8 +184,8 @@ test.describe('完整转诊流程', () => {
 
     // 验证患者信息卡可见
     await expect(page.locator('.patient-card')).toBeVisible({ timeout: 5000 })
-    // 验证 AI 分析报告区域可见
-    await expect(page.locator('.analysis-card')).toBeVisible({ timeout: 5000 })
+    // 验证 AI 预问诊报告区域可见
+    await expect(page.locator('.emr-card')).toBeVisible({ timeout: 5000 })
     console.log('Doctor viewed consultation detail')
 
     // ---- Step 8: 医生输入回复 ----

@@ -13,16 +13,21 @@ import com.smart.health.consultation.entity.ConsultationSession;
 import com.smart.health.consultation.entity.ConsultationTurn;
 import com.smart.health.consultation.mapper.ConsultationSessionMapper;
 import com.smart.health.consultation.mapper.ConsultationTurnMapper;
+import com.smart.health.consultation.service.PreConsultationEmrGenerator;
 import com.smart.health.consultation.service.SessionAccessor;
 import com.smart.health.consultation.service.SessionManager;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.Collections;
 import java.util.List;
 /**
  * 会话管理 Service — 生命周期管理实现
@@ -39,6 +44,9 @@ public class SessionManagerImpl implements SessionManager {
     private final SessionAccessor sessionAccessor;
     private final SessionVOAssembler sessionVOAssembler;
     private final DistributedSequenceGenerator sequenceGenerator;
+    private final PreConsultationEmrGenerator emrGenerator;
+    private final ObjectMapper objectMapper;
+    private final TransactionTemplate transactionTemplate;
 
     // ========== SessionManager 职责 ==========
 
@@ -81,14 +89,14 @@ public class SessionManagerImpl implements SessionManager {
     }
 
     @Override
-    @Transactional
+    @Transactional(readOnly = true)
     public SessionVO getSessionDetail(String sessionSn, Long patientId) {
         ConsultationSession session = sessionAccessor.findAndValidate(sessionSn, patientId);
         return sessionVOAssembler.toVO(session);
     }
 
     @Override
-    @Transactional
+    @Transactional(readOnly = true)
     public PageResult<TurnVO> getSessionTurns(String sessionSn, Long patientId, int page, int size) {
         ConsultationSession session = sessionAccessor.findAndValidate(sessionSn, patientId);
 
@@ -101,13 +109,14 @@ public class SessionManagerImpl implements SessionManager {
     }
 
     @Override
-    @Transactional
     public void completeSession(String sessionSn, Long patientId) {
         ConsultationSession session = sessionAccessor.findAndValidate(sessionSn, patientId);
         if (SessionStatus.isCompleted(session.getStatus())) {
             throw new BusinessException("问诊已结束");
         }
-        sessionMapper.updateStatus(session.getId(), SessionStatus.COMPLETED);
+        String emrJson = generateEmrJson(session);
+        saveEmrAndTransition(session, emrJson, SessionStatus.COMPLETED);
+        session.setAiSummary(emrJson);
     }
 
     @Override
@@ -117,13 +126,14 @@ public class SessionManagerImpl implements SessionManager {
     }
 
     @Override
-    @Transactional
     public void handoffSession(String sessionSn, Long patientId, String reason) {
         ConsultationSession session = sessionAccessor.findAndValidate(sessionSn, patientId);
         if (!SessionStatus.isInProgress(session.getStatus())) {
             throw new BusinessException("当前会话状态不允许转诊，仅进行中的AI对话可转诊");
         }
-        sessionMapper.updateStatus(session.getId(), SessionStatus.PENDING_DOCTOR);
+        String emrJson = generateEmrJson(session);
+        saveEmrAndTransition(session, emrJson, SessionStatus.PENDING_DOCTOR);
+        session.setAiSummary(emrJson);
         log.info("患者发起转诊, sessionSn={}, patientId={}, reason={}", sessionSn, patientId, reason);
     }
 
@@ -161,5 +171,30 @@ public class SessionManagerImpl implements SessionManager {
         } catch (Exception e) {
             return dateStr;
         }
+    }
+
+    /**
+     * 调用 LLM 生成结构化 EMR 并序列化为 JSON（在事务外执行）
+     */
+    private String generateEmrJson(ConsultationSession session) {
+        List<ConsultationTurn> turns = turnMapper.selectBySessionSnDesc(session.getSessionSn());
+        Collections.reverse(turns);
+        var emr = emrGenerator.generate(turns, session.getSymptomDraft());
+        try {
+            return objectMapper.writeValueAsString(emr);
+        } catch (com.fasterxml.jackson.core.JsonProcessingException e) {
+            log.error("序列化结构化 EMR 失败, sessionSn={}: {}", session.getSessionSn(), e.getMessage(), e);
+            throw new RuntimeException("结构化 EMR 保存失败", e);
+        }
+    }
+
+    /**
+     * 在单个事务中原子写入 EMR 并更新会话状态
+     */
+    private void saveEmrAndTransition(ConsultationSession session, String emrJson, String newStatus) {
+        transactionTemplate.executeWithoutResult(status -> {
+            sessionMapper.updateAiSummary(session.getId(), emrJson);
+            sessionMapper.updateStatus(session.getId(), newStatus);
+        });
     }
 }

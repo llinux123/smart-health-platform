@@ -8,7 +8,6 @@ import com.smart.health.common.security.SecurityUtils;
 import com.smart.health.consultation.dto.*;
 import com.smart.health.consultation.service.ChatStream;
 import com.smart.health.consultation.service.MultimodalService;
-import com.smart.health.consultation.service.RagRetrievalService;
 import com.smart.health.consultation.service.SessionArchive;
 import com.smart.health.consultation.service.SessionManager;
 import io.swagger.v3.oas.annotations.Operation;
@@ -40,7 +39,6 @@ public class AiConsultController {
     private final ChatStream chatStream;
     private final SessionManager sessionManager;
     private final SessionArchive sessionArchive;
-    private final RagRetrievalService ragRetrievalService;
 
     // ============ 多模态接口 ============
 
@@ -211,15 +209,6 @@ public class AiConsultController {
         Long patientId = extractPatientId(bearerToken);
         sessionArchive.permanentDeleteFromRecycleBin(sessionSn, patientId);
         return Result.ok();
-    }
-
-    // ============ RAG 知识库接口 ============
-
-    @PostMapping("/knowledge/import")
-    @Operation(summary = "导入医学知识")
-    public Result<Integer> importKnowledge(@RequestBody KnowledgeImportRequest request) {
-        int count = ragRetrievalService.importDocument(request.getTitle(), request.getContent(), request.getCategory());
-        return Result.ok(count);
     }
 
     // ============ 工具方法 ============

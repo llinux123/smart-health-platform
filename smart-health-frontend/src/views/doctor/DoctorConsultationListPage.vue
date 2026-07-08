@@ -106,7 +106,7 @@ onMounted(() => {
           @click="goToDetail(s)"
         >
           <template #value>
-            <van-tag :type="s.status === 'PENDING_DOCTOR' ? 'warning' : 'primary'" size="small">
+            <van-tag :type="s.status === 'PENDING_DOCTOR' ? 'warning' : 'primary'" size="medium">
               {{ statusLabel(s.status) }}
             </van-tag>
           </template>

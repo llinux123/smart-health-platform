@@ -102,6 +102,11 @@ services:
       SPRING_DATA_REDIS_PORT: 6379
       NACOS_SERVER_ADDR: nacos:8848
       JWT_SECRET: ${JWT_SECRET:-c21hcnQtaGVhbHRoLXBsYXRmb3JtLWp3dC1zZWNyZXQta2V5LTIwMjY=}
+      SMS_PROVIDER: ${SMS_PROVIDER:-mock}
+      SMS_ALIYUN_ACCESS_KEY_ID: ${SMS_ALIYUN_ACCESS_KEY_ID:-}
+      SMS_ALIYUN_ACCESS_KEY_SECRET: ${SMS_ALIYUN_ACCESS_KEY_SECRET:-}
+      SMS_ALIYUN_SIGN_NAME: ${SMS_ALIYUN_SIGN_NAME:-}
+      SMS_ALIYUN_TEMPLATE_CODE: ${SMS_ALIYUN_TEMPLATE_CODE:-}
     depends_on:
       - mysql
       - redis
@@ -217,8 +222,43 @@ services:
       - smart-health-net
 
   # ============================================================
-  # 前端（Nginx + Vue SPA）
+  # 聚合服务（首页统计等）
   # ============================================================
+  app-service:
+    build:
+      context: .
+      dockerfile: smart-health-app/Dockerfile
+    container_name: smart-health-app
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/smart_health?useUnicode=true&characterEncoding=utf-8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true
+      SPRING_DATASOURCE_USERNAME: root
+      SPRING_DATASOURCE_PASSWORD: root123456
+      SPRING_DATA_REDIS_HOST: redis
+      SPRING_DATA_REDIS_PORT: 6379
+      SPRING_RABBITMQ_HOST: rabbitmq
+      SPRING_RABBITMQ_PORT: 5672
+      SPRING_RABBITMQ_USERNAME: guest
+      SPRING_RABBITMQ_PASSWORD: guest
+      SPRING_ELASTICSEARCH_URIS: http://elasticsearch:9200
+      NACOS_SERVER_ADDR: nacos:8848
+      JWT_SECRET: ${JWT_SECRET:-c21hcnQtaGVhbHRoLXBsYXRmb3JtLWp3dC1zZWNyZXQta2V5LTIwMjY=}
+      AI_API_KEY: ${AI_API_KEY}
+      ZHIPU_API_KEY: ${ZHIPU_API_KEY}
+      UPLOAD_PATH: /app/uploads
+    volumes:
+      - consultation-uploads:/app/uploads
+    depends_on:
+      - mysql
+      - redis
+      - rabbitmq
+      - elasticsearch
+      - nacos
+    networks:
+      - smart-health-net
+
   frontend:
     build:
       context: .

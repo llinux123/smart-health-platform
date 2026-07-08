@@ -48,6 +48,15 @@ jwt:
 # 禁用 common 模块的通用 JWT Filter（user-service 使用自己的 DB-backed Filter）
 jwt.auth.filter.enabled: false
 
+# 短信服务配置（mock=本地日志, aliyun=阿里云SMS）
+sms:
+  provider: ${SMS_PROVIDER:mock}
+  aliyun:
+    access-key-id: ${SMS_ALIYUN_ACCESS_KEY_ID:}
+    access-key-secret: ${SMS_ALIYUN_ACCESS_KEY_SECRET:}
+    sign-name: ${SMS_ALIYUN_SIGN_NAME:}
+    template-code: ${SMS_ALIYUN_TEMPLATE_CODE:}
+
 # Knife4j / SpringDoc
 springdoc:
   api-docs:

@@ -1,6 +1,8 @@
 package com.smart.health.consultation.service;
 
+import com.smart.health.common.result.PageResult;
 import com.smart.health.consultation.dto.ConsultStreamResponse;
+import com.smart.health.consultation.entity.MedicalKnowledgeDocument;
 
 import java.util.List;
 
@@ -46,4 +48,22 @@ public interface RagRetrievalService {
      * @return 导入成功条数
      */
     int importDocument(String title, String content, String category);
+
+    /**
+     * 分页查询知识库文档，支持关键字搜索
+     *
+     * @param page    页码（从1开始）
+     * @param size    每页大小
+     * @param keyword 搜索关键字（可选，匹配标题或内容）
+     * @return 分页结果
+     */
+    PageResult<MedicalKnowledgeDocument> listDocuments(int page, int size, String keyword);
+
+    /**
+     * 根据 ES 文档 ID 删除知识库文档
+     *
+     * @param id ES 文档 ID
+     * @return 是否删除成功
+     */
+    boolean deleteDocument(String id);
 }

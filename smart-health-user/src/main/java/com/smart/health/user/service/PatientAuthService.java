@@ -8,14 +8,21 @@ import com.smart.health.user.dto.*;
 import com.smart.health.user.entity.Patient;
 import com.smart.health.user.mapper.PatientMapper;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.security.SecureRandom;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
+import java.util.Base64;
+import java.util.UUID;
 
 /**
  * 患者认证服务
@@ -28,6 +35,9 @@ public class PatientAuthService {
     private final PasswordEncoder passwordEncoder;
     private final JwtTokenProvider jwtTokenProvider;
     private final SmsService smsService;
+
+    @Value("${avatar.upload-path:./avatars/}")
+    private String avatarUploadPath;
 
     private static final String RANDOM_PASSWORD_CHARS = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
     private static final int RANDOM_PASSWORD_LENGTH = 12;
@@ -208,7 +218,9 @@ public class PatientAuthService {
         patient.setRealName(request.getRealName());
         patient.setIdCard(request.getIdCard());
         patient.setGender(request.getGender() != null ? request.getGender() : patient.getGender());
-        patient.setEmail(request.getEmail());
+        if (request.getEmail() != null && !request.getEmail().isBlank()) {
+            patient.setEmail(request.getEmail());
+        }
         patient.setBirthday(parseBirthdayFromIdCard(request.getIdCard()));
         patient.setIdCardFrontUrl(request.getIdCardFrontUrl());
         patient.setIdCardBackUrl(request.getIdCardBackUrl());
@@ -236,6 +248,21 @@ public class PatientAuthService {
     }
 
     /**
+     * 绑定邮箱（独立于实名认证）
+     */
+    @Transactional
+    public ProfileResponse bindEmail(String email) {
+        Long patientId = SecurityUtils.getCurrentPatientId();
+        Patient patient = patientMapper.findById(patientId);
+        if (patient == null) {
+            throw new BusinessException(ResultCode.USER_NOT_FOUND);
+        }
+        patient.setEmail(email);
+        patientMapper.update(patient);
+        return getProfile();
+    }
+
+    /**
      * 更新用户名
      */
     @Transactional
@@ -258,6 +285,9 @@ public class PatientAuthService {
      */
     @Transactional
     public ProfileResponse updateAvatar(String avatarUrl) {
+        if (avatarUrl != null && avatarUrl.startsWith("data:")) {
+            avatarUrl = saveBase64Avatar(avatarUrl);
+        }
         Long patientId = SecurityUtils.getCurrentPatientId();
         Patient patient = patientMapper.findById(patientId);
         if (patient == null) {
@@ -266,6 +296,51 @@ public class PatientAuthService {
         patient.setAvatar(avatarUrl);
         patientMapper.update(patient);
         return getProfile();
+    }
+
+    /**
+     * 将 base64 data URL 解码为图片文件并返回可访问的 URL
+     */
+    private String saveBase64Avatar(String dataUrl) {
+        int commaIndex = dataUrl.indexOf(',');
+        if (commaIndex < 0) {
+            throw new BusinessException(ResultCode.PARAM_ERROR, "无效的头像数据");
+        }
+
+        String header = dataUrl.substring(0, commaIndex);
+        String base64Data = dataUrl.substring(commaIndex + 1);
+
+        String extension = "jpg";
+        if (header.contains("png")) {
+            extension = "png";
+        } else if (header.contains("gif")) {
+            extension = "gif";
+        } else if (header.contains("webp")) {
+            extension = "webp";
+        }
+
+        byte[] imageBytes;
+        try {
+            imageBytes = Base64.getDecoder().decode(base64Data);
+        } catch (IllegalArgumentException e) {
+            throw new BusinessException(ResultCode.PARAM_ERROR, "头像数据格式错误");
+        }
+
+        if (imageBytes.length > 2 * 1024 * 1024) {
+            throw new BusinessException(ResultCode.PARAM_ERROR, "头像文件过大，请选择较小的图片");
+        }
+
+        String filename = UUID.randomUUID().toString() + "." + extension;
+        try {
+            Path filePath = Paths.get(avatarUploadPath, filename);
+            Files.write(filePath, imageBytes);
+            log.info("头像文件已保存: {}", filePath);
+        } catch (IOException e) {
+            log.error("保存头像文件失败", e);
+            throw new BusinessException(ResultCode.FAIL, "头像保存失败");
+        }
+
+        return "/api/v1/auth/avatars/" + filename;
     }
 
     /**

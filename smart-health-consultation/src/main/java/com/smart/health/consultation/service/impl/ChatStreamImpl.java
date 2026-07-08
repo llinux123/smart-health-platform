@@ -55,12 +55,15 @@ public class ChatStreamImpl implements ChatStream {
             throw new BusinessException("消息内容不能为空");
         }
 
-        // 查询或自动创建会话（由 Caller 层处理）
+        // 查询或自动创建会话
         ConsultationSession session;
         if (request.getSessionId() != null && !request.getSessionId().isBlank()) {
             session = sessionAccessor.findAndValidate(request.getSessionId(), patientId);
             if (SessionStatus.isCompleted(session.getStatus())) {
                 throw new BusinessException("问诊已结束，无法继续对话");
+            }
+            if (!SessionStatus.isInProgress(session.getStatus())) {
+                throw new BusinessException("会话已转接医生，请在医生回复中继续沟通");
             }
         } else {
             // 自动创建新会话（恢复旧行为，支持前端首次发消息自动创建）
@@ -118,15 +121,15 @@ public class ChatStreamImpl implements ChatStream {
                         },
                         () -> {
                             try {
+                                saveTurn(session.getSessionSn(), request.getMessage(), fullResponse.toString(), citations);
+                                updateSessionAfterChat(session);
+
                                 if (citations != null && !citations.isEmpty()) {
                                     ConsultStreamResponse citResp = ConsultStreamResponse.builder().content("").citations(citations).build();
                                     emitter.send(SseEmitter.event().data(objectMapper.writeValueAsString(citResp)));
                                 }
                                 emitter.send(SseEmitter.event().data("[DONE]"));
                                 emitter.complete();
-
-                                saveTurn(session.getSessionSn(), request.getMessage(), fullResponse.toString(), citations);
-                                updateSessionAfterChat(session);
                                 log.info("问诊流式响应完成, sessionSn={}, 本轮回答长度={}", sessionSnRef.get(), fullResponse.length());
                             } catch (IOException e) {
                                 log.error("SSE 完成发送失败", e);
@@ -224,7 +227,9 @@ public class ChatStreamImpl implements ChatStream {
         systemContent.append("1. 回答必须基于下方提供的【医学知识库】内容，不要编造不存在的医学事实。\n");
         systemContent.append("2. 在回答正文中使用 [1]、[2] 等编号标注引用来源。\n");
         systemContent.append("3. 始终提醒患者：AI建议仅供参考，具体诊疗请遵医嘱。\n");
-        systemContent.append("4. 语言要通俗易懂。\n\n");
+        systemContent.append("4. 语言要通俗易懂。\n");
+        systemContent.append("5. 作为预问诊医助，当患者描述症状后，请主动追问关键信息：发病时间、症状部位、严重程度、伴随症状、既往史、过敏史。\n");
+        systemContent.append("6. 在问诊过程中保持简洁，每次追问 1-2 个问题，避免一次性抛出过多问题给患者。\n\n");
 
         if (symptomDraft != null && !symptomDraft.isBlank()) {
             systemContent.append("【患者症状自查草稿】\n").append(symptomDraft).append("\n\n");
@@ -235,10 +240,13 @@ public class ChatStreamImpl implements ChatStream {
         systemContent.append("请基于以上信息回答患者的问题。");
         messages.add(new SystemMessage(systemContent.toString()));
 
-        // 最近 10 轮历史
+        // 最近 10 轮历史（仅 AI 轮次，过滤医生回复避免污染提示词）
         int startIdx = Math.max(0, historyTurns.size() - 10);
         for (int i = startIdx; i < historyTurns.size(); i++) {
             ConsultationTurn turn = historyTurns.get(i);
+            if ("DOCTOR".equals(turn.getSenderType())) {
+                continue;
+            }
             messages.add(new UserMessage(turn.getUserMessage()));
             messages.add(new AssistantMessage(turn.getAssistantMessage()));
         }

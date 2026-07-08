@@ -164,6 +164,7 @@ export interface DoctorConsultDetail {
   patientGender: number
   patientAge: number
   symptomDraft: string
+  aiSummary?: string
   fileUrls: string[]
   status: string
   turns: TurnInfo[]

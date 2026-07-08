@@ -208,6 +208,10 @@
                     <polyline points="3.27 6.96 12 12.01 20.73 6.96" />
                     <line x1="12" y1="22.08" x2="12" y2="12" />
                   </template>
+                  <template v-else-if="item.icon === 'knowledge'">
+                    <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z" />
+                    <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z" />
+                  </template>
                 </svg>
               </div>
               <div class="list-item-body">
@@ -296,7 +300,8 @@ const adminMenuItems = computed(() => {
     items.push(
       { title: '排班管理', desc: '管理医生出诊排班', icon: 'schedule', iconClass: 'list-icon-admin', path: '/admin/schedule' },
       { title: '员工管理', desc: '管理员工账号信息', icon: 'users', iconClass: 'list-icon-admin', path: '/admin/employees' },
-      { title: '库存管理', desc: '药品入库、出库与盘点', icon: 'package', iconClass: 'list-icon-admin', path: '/admin/inventory' }
+      { title: '库存管理', desc: '药品入库、出库与盘点', icon: 'package', iconClass: 'list-icon-admin', path: '/admin/inventory' },
+      { title: '知识库管理', desc: '管理 AI 问诊医学知识库', icon: 'knowledge', iconClass: 'list-icon-admin', path: '/admin/knowledge' }
     )
   } else if (role === 'DOCTOR') {
     items.push(

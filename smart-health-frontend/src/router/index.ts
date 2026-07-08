@@ -107,7 +107,19 @@ const routes: RouteRecordRaw[] = [
   {
     path: '/account/bind-identity',
     name: 'BindIdentity',
-    component: () => import('@/views/account/BindIdentityPage.vue'),
+    component: () => import('@/views/account/BindIdentityStep1Page.vue'),
+    meta: { requiresAuth: true, hideTab: true }
+  },
+  {
+    path: '/account/bind-identity/verify',
+    name: 'BindIdentityVerify',
+    component: () => import('@/views/account/BindIdentityStep2Page.vue'),
+    meta: { requiresAuth: true, hideTab: true }
+  },
+  {
+    path: '/account/bind-email',
+    name: 'BindEmail',
+    component: () => import('@/views/account/BindEmailPage.vue'),
     meta: { requiresAuth: true, hideTab: true }
   },
   {
@@ -160,6 +172,12 @@ const routes: RouteRecordRaw[] = [
     path: '/admin/employees',
     name: 'AdminEmployees',
     component: () => import('@/views/admin/EmployeeManagePage.vue'),
+    meta: { requiresAuth: true, hideTab: true, roles: ['ADMIN'] }
+  },
+  {
+    path: '/admin/knowledge',
+    name: 'AdminKnowledge',
+    component: () => import('@/views/admin/KnowledgeManagePage.vue'),
     meta: { requiresAuth: true, hideTab: true, roles: ['ADMIN'] }
   }
 ]

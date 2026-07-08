@@ -1,0 +1,342 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "plugin": ["/home/muxin/codebase/github/ECC/.opencode/plugins"],
+  "instructions": [
+    "/home/muxin/codebase/github/ECC/.opencode/instructions/INSTRUCTIONS.md",
+    "/home/muxin/codebase/github/ECC/skills/tdd-workflow/SKILL.md",
+    "/home/muxin/codebase/github/ECC/skills/security-review/SKILL.md",
+    "/home/muxin/codebase/github/ECC/skills/coding-standards/SKILL.md",
+    "/home/muxin/codebase/github/ECC/skills/backend-patterns/SKILL.md",
+    "/home/muxin/codebase/github/ECC/skills/e2e-testing/SKILL.md",
+    "/home/muxin/codebase/github/ECC/skills/api-design/SKILL.md",
+    "/home/muxin/codebase/github/ECC/skills/verification-loop/SKILL.md",
+    "/home/muxin/codebase/github/ECC/skills/error-handling/SKILL.md",
+    "/home/muxin/codebase/github/ECC/skills/springboot-patterns/SKILL.md",
+    "/home/muxin/codebase/github/ECC/skills/springboot-security/SKILL.md",
+    "/home/muxin/codebase/github/ECC/skills/springboot-tdd/SKILL.md",
+    "/home/muxin/codebase/github/ECC/skills/jpa-patterns/SKILL.md",
+    "/home/muxin/codebase/github/ECC/skills/mysql-patterns/SKILL.md",
+    "/home/muxin/codebase/github/ECC/skills/redis-patterns/SKILL.md",
+    "/home/muxin/codebase/github/ECC/skills/vue-patterns/SKILL.md",
+    "/home/muxin/codebase/github/ECC/skills/frontend-patterns/SKILL.md",
+    "/home/muxin/codebase/github/ECC/skills/healthcare-phi-compliance/SKILL.md",
+    "/home/muxin/codebase/github/ECC/skills/healthcare-cdss-patterns/SKILL.md",
+    "/home/muxin/codebase/github/ECC/skills/docker-patterns/SKILL.md",
+    "/home/muxin/codebase/github/ECC/skills/database-migrations/SKILL.md",
+    "/home/muxin/codebase/github/ECC/skills/git-workflow/SKILL.md",
+    "/home/muxin/codebase/github/ECC/skills/strategic-compact/SKILL.md"
+  ],
+  "skills": {
+    "paths": [
+      "/home/muxin/codebase/github/ECC/skills",
+      "/home/muxin/.agents/skills",
+      ".agents/skills"
+    ]
+  },
+  "agent": {
+    "build": {
+      "description": "Primary coding agent for development work",
+      "mode": "primary",
+      "model": "deepseek/deepseek-v4-flash",
+      "tools": { "write": true, "edit": true, "bash": true, "read": true }
+    },
+    "planner": {
+      "description": "Expert planning specialist for complex features and refactoring",
+      "mode": "subagent",
+      "prompt": "{file:/home/muxin/codebase/github/ECC/.opencode/prompts/agents/planner.txt}",
+      "tools": { "read": true, "bash": true, "write": false, "edit": false }
+    },
+    "architect": {
+      "description": "Software architecture specialist for system design",
+      "mode": "subagent",
+      "prompt": "{file:/home/muxin/codebase/github/ECC/.opencode/prompts/agents/architect.txt}",
+      "tools": { "read": true, "bash": true, "write": false, "edit": false }
+    },
+    "code-reviewer": {
+      "description": "Expert code review specialist",
+      "mode": "subagent",
+      "prompt": "{file:/home/muxin/codebase/github/ECC/.opencode/prompts/agents/code-reviewer.txt}",
+      "tools": { "read": true, "bash": true, "write": false, "edit": false }
+    },
+    "security-reviewer": {
+      "description": "Security vulnerability detection specialist",
+      "mode": "subagent",
+      "prompt": "{file:/home/muxin/codebase/github/ECC/.opencode/prompts/agents/security-reviewer.txt}",
+      "tools": { "read": true, "bash": true, "write": true, "edit": true }
+    },
+    "tdd-guide": {
+      "description": "Test-Driven Development specialist",
+      "mode": "subagent",
+      "prompt": "{file:/home/muxin/codebase/github/ECC/.opencode/prompts/agents/tdd-guide.txt}",
+      "tools": { "read": true, "write": true, "edit": true, "bash": true }
+    },
+    "build-error-resolver": {
+      "description": "Build and TypeScript error resolution specialist",
+      "mode": "subagent",
+      "prompt": "{file:/home/muxin/codebase/github/ECC/.opencode/prompts/agents/build-error-resolver.txt}",
+      "tools": { "read": true, "write": true, "edit": true, "bash": true }
+    },
+    "e2e-runner": {
+      "description": "End-to-end testing specialist using Playwright",
+      "mode": "subagent",
+      "prompt": "{file:/home/muxin/codebase/github/ECC/.opencode/prompts/agents/e2e-runner.txt}",
+      "tools": { "read": true, "write": true, "edit": true, "bash": true }
+    },
+    "doc-updater": {
+      "description": "Documentation and codemap specialist",
+      "mode": "subagent",
+      "prompt": "{file:/home/muxin/codebase/github/ECC/.opencode/prompts/agents/doc-updater.txt}",
+      "tools": { "read": true, "write": true, "edit": true, "bash": true }
+    },
+    "refactor-cleaner": {
+      "description": "Dead code cleanup and consolidation specialist",
+      "mode": "subagent",
+      "prompt": "{file:/home/muxin/codebase/github/ECC/.opencode/prompts/agents/refactor-cleaner.txt}",
+      "tools": { "read": true, "write": true, "edit": true, "bash": true }
+    },
+    "database-reviewer": {
+      "description": "PostgreSQL database specialist",
+      "mode": "subagent",
+      "prompt": "{file:/home/muxin/codebase/github/ECC/.opencode/prompts/agents/database-reviewer.txt}",
+      "tools": { "read": true, "write": true, "edit": true, "bash": true }
+    },
+    "java-reviewer": {
+      "description": "Java and Spring Boot code reviewer",
+      "mode": "subagent",
+      "prompt": "{file:/home/muxin/codebase/github/ECC/.opencode/prompts/agents/java-reviewer.txt}",
+      "tools": { "read": true, "bash": true, "write": false, "edit": false }
+    },
+    "java-build-resolver": {
+      "description": "Java/Maven/Gradle build error resolution",
+      "mode": "subagent",
+      "prompt": "{file:/home/muxin/codebase/github/ECC/.opencode/prompts/agents/java-build-resolver.txt}",
+      "tools": { "read": true, "write": true, "edit": true, "bash": true }
+    },
+    "typescript-reviewer": {
+      "description": "Expert TypeScript/JavaScript code reviewer specializing in type safety, async correctness, and Node/web security.",
+      "mode": "subagent",
+      "prompt": "{file:/home/muxin/codebase/github/ECC/.opencode/prompts/agents/typescript-reviewer.txt}",
+      "tools": { "read": true, "bash": true }
+    },
+    "vue-reviewer": {
+      "description": "Expert Vue.js code reviewer specializing in Composition API correctness, reactivity, and template security.",
+      "mode": "subagent",
+      "prompt": "{file:/home/muxin/codebase/github/ECC/.opencode/prompts/agents/vue-reviewer.txt}",
+      "tools": { "read": true, "bash": true }
+    },
+    "healthcare-reviewer": {
+      "description": "Reviews healthcare application code for clinical safety, CDSS accuracy, and PHI compliance.",
+      "mode": "subagent",
+      "prompt": "{file:/home/muxin/codebase/github/ECC/.opencode/prompts/agents/healthcare-reviewer.txt}",
+      "tools": { "read": true, "bash": true }
+    },
+    "code-architect": {
+      "description": "Designs feature architectures by analyzing existing codebase patterns and conventions.",
+      "mode": "subagent",
+      "prompt": "{file:/home/muxin/codebase/github/ECC/.opencode/prompts/agents/code-architect.txt}",
+      "tools": { "read": true, "bash": true }
+    },
+    "code-explorer": {
+      "description": "Deeply analyzes existing codebase features by tracing execution paths.",
+      "mode": "subagent",
+      "prompt": "{file:/home/muxin/codebase/github/ECC/.opencode/prompts/agents/code-explorer.txt}",
+      "tools": { "read": true, "bash": true }
+    },
+    "code-simplifier": {
+      "description": "Simplifies and refines code for clarity, consistency, and maintainability while preserving behavior.",
+      "mode": "subagent",
+      "prompt": "{file:/home/muxin/codebase/github/ECC/.opencode/prompts/agents/code-simplifier.txt}",
+      "tools": { "read": true, "write": true, "edit": true, "bash": true }
+    },
+    "performance-optimizer": {
+      "description": "Performance analysis and optimization specialist. Profiling, memory leaks, render optimization.",
+      "mode": "subagent",
+      "prompt": "{file:/home/muxin/codebase/github/ECC/.opencode/prompts/agents/performance-optimizer.txt}",
+      "tools": { "read": true, "write": true, "edit": true, "bash": true }
+    },
+    "silent-failure-hunter": {
+      "description": "Review code for silent failures, swallowed errors, bad fallbacks, and missing error propagation.",
+      "mode": "subagent",
+      "prompt": "{file:/home/muxin/codebase/github/ECC/.opencode/prompts/agents/silent-failure-hunter.txt}",
+      "tools": { "read": true, "bash": true }
+    },
+    "docs-lookup": {
+      "description": "Documentation lookup via Context7",
+      "mode": "subagent",
+      "prompt": "{file:/home/muxin/codebase/github/ECC/.opencode/prompts/agents/docs-lookup.txt}",
+      "tools": { "read": true, "bash": true, "write": false, "edit": false }
+    },
+    "pr-test-analyzer": {
+      "description": "Review pull request test coverage quality and completeness.",
+      "mode": "subagent",
+      "prompt": "{file:/home/muxin/codebase/github/ECC/.opencode/prompts/agents/pr-test-analyzer.txt}",
+      "tools": { "read": true, "bash": true }
+    },
+    "spec-miner": {
+      "description": "Extracts behavioral specs from existing codebases for OpenSpec.",
+      "mode": "subagent",
+      "prompt": "{file:/home/muxin/codebase/github/ECC/.opencode/prompts/agents/spec-miner.txt}",
+      "tools": { "read": true, "bash": true, "write": true }
+    },
+    "react-build-resolver": {
+      "description": "Diagnose and fix React build failures across Vite, webpack, Next.js, CRA, and Bun.",
+      "mode": "subagent",
+      "prompt": "{file:/home/muxin/codebase/github/ECC/.opencode/prompts/agents/react-build-resolver.txt}",
+      "tools": { "read": true, "write": true, "edit": true, "bash": true }
+    },
+    "comment-analyzer": {
+      "description": "Analyze code comments for accuracy, completeness, maintainability, and comment rot risk.",
+      "mode": "subagent",
+      "prompt": "{file:/home/muxin/codebase/github/ECC/.opencode/prompts/agents/comment-analyzer.txt}",
+      "tools": { "read": true, "bash": true }
+    },
+    "agent-evaluator": {
+      "description": "Evaluates agent output against 5-axis quality rubric.",
+      "mode": "subagent",
+      "prompt": "{file:/home/muxin/codebase/github/ECC/.opencode/prompts/agents/agent-evaluator.txt}",
+      "tools": { "read": true, "bash": true }
+    },
+    "go-reviewer": { "disable": true },
+    "go-build-resolver": { "disable": true },
+    "cpp-reviewer": { "disable": true },
+    "cpp-build-resolver": { "disable": true },
+    "kotlin-reviewer": { "disable": true },
+    "kotlin-build-resolver": { "disable": true },
+    "rust-reviewer": { "disable": true },
+    "rust-build-resolver": { "disable": true },
+    "php-reviewer": { "disable": true },
+    "python-reviewer": { "disable": true },
+    "django-reviewer": { "disable": true },
+    "django-build-resolver": { "disable": true },
+    "fastapi-reviewer": { "disable": true },
+    "csharp-reviewer": { "disable": true },
+    "fsharp-reviewer": { "disable": true },
+    "flutter-reviewer": { "disable": true },
+    "dart-build-resolver": { "disable": true },
+    "swift-reviewer": { "disable": true },
+    "swift-build-resolver": { "disable": true },
+    "harmonyos-app-resolver": { "disable": true },
+    "pytorch-build-resolver": { "disable": true },
+    "react-reviewer": { "disable": true },
+
+    "chief-of-staff": { "disable": true },
+    "conversation-analyzer": { "disable": true },
+    "gan-evaluator": { "disable": true },
+    "gan-generator": { "disable": true },
+    "gan-planner": { "disable": true },
+    "homelab-architect": { "disable": true },
+    "loop-operator": { "disable": true },
+    "marketing-agent": { "disable": true },
+    "mle-reviewer": { "disable": true },
+    "network-architect": { "disable": true },
+    "network-config-reviewer": { "disable": true },
+    "network-troubleshooter": { "disable": true },
+    "opensource-forker": { "disable": true },
+    "opensource-packager": { "disable": true },
+    "opensource-sanitizer": { "disable": true },
+    "seo-specialist": { "disable": true },
+    "a11y-architect": { "disable": true },
+    "harness-optimizer": { "disable": true },
+    "type-design-analyzer": { "disable": true }
+  },
+  "command": {
+    "plan": {
+      "description": "Create a detailed implementation plan",
+      "template": "{file:/home/muxin/codebase/github/ECC/.opencode/commands/plan.md}\n\n$ARGUMENTS",
+      "agent": "planner",
+      "subtask": true
+    },
+    "tdd": {
+      "description": "Enforce TDD workflow with 80%+ test coverage",
+      "template": "{file:/home/muxin/codebase/github/ECC/.opencode/commands/tdd.md}\n\n$ARGUMENTS",
+      "agent": "tdd-guide",
+      "subtask": true
+    },
+    "code-review": {
+      "description": "Review code for quality, security, and maintainability",
+      "template": "{file:/home/muxin/codebase/github/ECC/.opencode/commands/code-review.md}\n\n$ARGUMENTS",
+      "agent": "code-reviewer",
+      "subtask": true
+    },
+    "security": {
+      "description": "Run comprehensive security review",
+      "template": "{file:/home/muxin/codebase/github/ECC/.opencode/commands/security.md}\n\n$ARGUMENTS",
+      "agent": "security-reviewer",
+      "subtask": true
+    },
+    "build-fix": {
+      "description": "Fix build and TypeScript errors",
+      "template": "{file:/home/muxin/codebase/github/ECC/.opencode/commands/build-fix.md}\n\n$ARGUMENTS",
+      "agent": "build-error-resolver",
+      "subtask": true
+    },
+    "e2e": {
+      "description": "Generate and run E2E tests with Playwright",
+      "template": "{file:/home/muxin/codebase/github/ECC/.opencode/commands/e2e.md}\n\n$ARGUMENTS",
+      "agent": "e2e-runner",
+      "subtask": true
+    },
+    "refactor-clean": {
+      "description": "Remove dead code and consolidate duplicates",
+      "template": "{file:/home/muxin/codebase/github/ECC/.opencode/commands/refactor-clean.md}\n\n$ARGUMENTS",
+      "agent": "refactor-cleaner",
+      "subtask": true
+    },
+    "orchestrate": {
+      "description": "Orchestrate multiple agents for complex tasks",
+      "template": "{file:/home/muxin/codebase/github/ECC/.opencode/commands/orchestrate.md}\n\n$ARGUMENTS",
+      "agent": "planner",
+      "subtask": true
+    },
+    "learn": {
+      "description": "Extract patterns and learnings from session",
+      "template": "{file:/home/muxin/codebase/github/ECC/.opencode/commands/learn.md}\n\n$ARGUMENTS"
+    },
+    "checkpoint": {
+      "description": "Save verification state and progress",
+      "template": "{file:/home/muxin/codebase/github/ECC/.opencode/commands/checkpoint.md}\n\n$ARGUMENTS"
+    },
+    "verify": {
+      "description": "Run verification loop",
+      "template": "{file:/home/muxin/codebase/github/ECC/.opencode/commands/verify.md}\n\n$ARGUMENTS"
+    },
+    "eval": {
+      "description": "Run evaluation against criteria",
+      "template": "{file:/home/muxin/codebase/github/ECC/.opencode/commands/eval.md}\n\n$ARGUMENTS"
+    },
+    "update-docs": {
+      "description": "Update documentation",
+      "template": "{file:/home/muxin/codebase/github/ECC/.opencode/commands/update-docs.md}\n\n$ARGUMENTS",
+      "agent": "doc-updater",
+      "subtask": true
+    },
+    "update-codemaps": {
+      "description": "Update codemaps",
+      "template": "{file:/home/muxin/codebase/github/ECC/.opencode/commands/update-codemaps.md}\n\n$ARGUMENTS",
+      "agent": "doc-updater",
+      "subtask": true
+    },
+    "test-coverage": {
+      "description": "Analyze test coverage",
+      "template": "{file:/home/muxin/codebase/github/ECC/.opencode/commands/test-coverage.md}\n\n$ARGUMENTS",
+      "agent": "tdd-guide",
+      "subtask": true
+    },
+    "skill-create": {
+      "description": "Generate skills from git history",
+      "template": "{file:/home/muxin/codebase/github/ECC/.opencode/commands/skill-create.md}\n\n$ARGUMENTS"
+    },
+    "model-route": {
+      "description": "Route task to optimal model",
+      "template": "{file:/home/muxin/codebase/github/ECC/.opencode/commands/model-route.md}\n\n$ARGUMENTS"
+    },
+    "quality-gate": {
+      "description": "Run quality gate checks",
+      "template": "{file:/home/muxin/codebase/github/ECC/.opencode/commands/quality-gate.md}\n\n$ARGUMENTS"
+    },
+    "security-scan": {
+      "description": "Run security vulnerability scan",
+      "template": "{file:/home/muxin/codebase/github/ECC/.opencode/commands/security-scan.md}\n\n$ARGUMENTS"
+    }
+  }
+}

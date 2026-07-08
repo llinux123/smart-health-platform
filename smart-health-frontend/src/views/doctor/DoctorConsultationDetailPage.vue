@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { showToast, showConfirmDialog } from 'vant'
 import { marked } from 'marked'
@@ -96,6 +96,34 @@ async function handleResolve() {
 
 const showHistory = ref(true)
 
+// 结构化 EMR 字段定义
+interface EmrData {
+  chiefComplaint?: string
+  presentIllness?: string
+  pastHistory?: string
+  allergyHistory?: string
+  suggestedExaminations?: string
+}
+
+const emrFields = [
+  { key: 'chiefComplaint', label: '🏥 主诉', icon: '🏥' },
+  { key: 'presentIllness', label: '📋 现病史', icon: '📋' },
+  { key: 'pastHistory', label: '📜 既往史', icon: '📜' },
+  { key: 'allergyHistory', label: '⚠️ 过敏史', icon: '⚠️' },
+  { key: 'suggestedExaminations', label: '🔬 建议检查', icon: '🔬' }
+] as const
+
+const emrData = computed<EmrData | null>(() => {
+  if (!detail.value?.aiSummary) return null
+  try {
+    return JSON.parse(detail.value.aiSummary) as EmrData
+  } catch {
+    return null
+  }
+})
+
+const hasEmr = computed(() => emrData.value !== null)
+
 onMounted(loadDetail)
 </script>
 
@@ -128,10 +156,27 @@ onMounted(loadDetail)
         </div>
       </div>
 
-      <!-- AI分析报告 -->
-      <div class="analysis-card card">
-        <h3>🤖 AI分析报告</h3>
-        <div class="markdown-body" v-html="renderMarkdown(detail.symptomDraft || '(无)')"></div>
+      <!-- 结构化预问诊电子病历 -->
+      <div class="emr-card card">
+        <h3>🤖 AI 预问诊报告</h3>
+        <div v-if="hasEmr" class="emr-body">
+          <div
+            v-for="field in emrFields"
+            :key="field.key"
+            class="emr-field"
+          >
+            <div class="emr-field-header">
+              <span class="emr-field-icon">{{ field.icon }}</span>
+              <span class="emr-field-label">{{ field.label }}</span>
+            </div>
+            <div class="emr-field-value">
+              {{ emrData![field.key as keyof EmrData] || '(无)' }}
+            </div>
+          </div>
+        </div>
+        <div v-else class="emr-placeholder">
+          暂未生成预问诊报告，患者结束问诊后将自动生成。
+        </div>
       </div>
 
       <!-- 附件 -->
@@ -352,5 +397,46 @@ onMounted(loadDetail)
   display: flex;
   justify-content: center;
   padding-top: 40vh;
+}
+
+/* 结构化 EMR 卡片 */
+.emr-body {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.emr-field {
+  background: var(--color-bg);
+  border-radius: var(--radius-sm);
+  padding: 10px 12px;
+  border-left: 3px solid var(--color-primary);
+}
+
+.emr-field-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 4px;
+}
+
+.emr-field-label {
+  font-size: var(--font-size-small);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-secondary);
+}
+
+.emr-field-value {
+  font-size: var(--font-size-body);
+  line-height: var(--line-height-relaxed);
+  color: var(--color-text);
+  padding-left: 22px;
+}
+
+.emr-placeholder {
+  text-align: center;
+  padding: var(--spacing-md);
+  color: var(--color-text-tertiary);
+  font-size: var(--font-size-caption);
 }
 </style>

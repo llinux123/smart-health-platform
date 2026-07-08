@@ -6,6 +6,11 @@ import co.elastic.clients.elasticsearch._types.query_dsl.MultiMatchQuery;
 import co.elastic.clients.elasticsearch._types.query_dsl.Query;
 import co.elastic.clients.elasticsearch._types.query_dsl.ScriptScoreQuery;
 import co.elastic.clients.elasticsearch.core.IndexRequest;
+import co.elastic.clients.elasticsearch.core.SearchRequest;
+import co.elastic.clients.elasticsearch.core.SearchResponse;
+import co.elastic.clients.elasticsearch.core.search.Hit;
+import co.elastic.clients.elasticsearch.core.search.TotalHits;
+import com.smart.health.common.result.PageResult;
 import com.smart.health.consultation.dto.ConsultStreamResponse;
 import com.smart.health.consultation.entity.MedicalKnowledgeDocument;
 import com.smart.health.consultation.service.RagRetrievalService;
@@ -19,6 +24,7 @@ import org.springframework.data.elasticsearch.core.SearchHit;
 import org.springframework.data.elasticsearch.core.SearchHits;
 import org.springframework.stereotype.Service;
 
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -32,6 +38,8 @@ import java.util.stream.Collectors;
 @Service
 @RequiredArgsConstructor
 public class RagRetrievalServiceImpl implements RagRetrievalService {
+
+    private static final String INDEX_NAME = "idx_medical_knowledge";
 
     private final ElasticsearchOperations elasticsearchOperations;
     private final ElasticsearchClient esClient;
@@ -199,15 +207,77 @@ public class RagRetrievalServiceImpl implements RagRetrievalService {
             }
 
             esClient.index(IndexRequest.of(i -> i
-                    .index("idx_medical_knowledge")
+                    .index(INDEX_NAME)
                     .document(doc)));
-            esClient.indices().refresh(r -> r.index("idx_medical_knowledge"));
+            esClient.indices().refresh(r -> r.index(INDEX_NAME));
 
             log.info("导入医学知识文档成功, title={}, category={}", title, category);
             return 1;
         } catch (Exception e) {
             log.error("导入医学知识文档失败: {}", e.getMessage());
             return 0;
+        }
+    }
+
+    /**
+     * 分页查询知识库文档，支持关键字搜索
+     */
+    @Override
+    public PageResult<MedicalKnowledgeDocument> listDocuments(int page, int size, String keyword) {
+        try {
+            int from = (page - 1) * size;
+
+            SearchRequest.Builder builder = new SearchRequest.Builder()
+                    .index(INDEX_NAME)
+                    .from(from)
+                    .size(size)
+                    .sort(so -> so.field(f -> f.field("category").order(co.elastic.clients.elasticsearch._types.SortOrder.Asc)));
+
+            if (keyword != null && !keyword.isBlank()) {
+                builder.query(q -> q
+                        .multiMatch(mm -> mm
+                                .query(keyword)
+                                .fields("title^2", "content")
+                                .fuzziness("AUTO")));
+            } else {
+                builder.query(q -> q.matchAll(ma -> ma));
+            }
+
+            SearchResponse<MedicalKnowledgeDocument> response = esClient.search(builder.build(), MedicalKnowledgeDocument.class);
+
+            List<MedicalKnowledgeDocument> docs = response.hits().hits().stream()
+                    .map(Hit::source)
+                    .filter(java.util.Objects::nonNull)
+                    .collect(Collectors.toList());
+
+            long total = 0;
+            TotalHits totalHits = response.hits().total();
+            if (totalHits != null) {
+                total = totalHits.value();
+            }
+
+            return PageResult.of(docs, total, page, size);
+        } catch (Exception e) {
+            log.error("查询知识库文档失败: {}", e.getMessage());
+            return PageResult.of(Collections.emptyList(), 0, page, size);
+        }
+    }
+
+    /**
+     * 根据 ES 文档 ID 删除知识库文档
+     */
+    @Override
+    public boolean deleteDocument(String id) {
+        try {
+            esClient.delete(d -> d
+                    .index(INDEX_NAME)
+                    .id(id));
+            esClient.indices().refresh(r -> r.index(INDEX_NAME));
+            log.info("删除知识库文档成功, id={}", id);
+            return true;
+        } catch (Exception e) {
+            log.error("删除知识库文档失败, id={}, error={}", id, e.getMessage());
+            return false;
         }
     }
 }
