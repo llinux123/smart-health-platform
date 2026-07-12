@@ -25,6 +25,9 @@ public class DoctorVO {
     @Schema(description = "所属科室")
     private String deptName;
 
+    @Schema(description = "主科室ID")
+    private Long primaryDepartmentId;
+
     @Schema(description = "擅长领域")
     private String specialty;
 

@@ -9,6 +9,7 @@ import org.springframework.data.elasticsearch.annotations.Document;
 import org.springframework.data.elasticsearch.annotations.Field;
 import org.springframework.data.elasticsearch.annotations.FieldType;
 
+import java.util.Date;
 import java.util.List;
 
 /**
@@ -37,6 +38,9 @@ public class MedicalKnowledgeDocument {
     @Field(type = FieldType.Keyword)
     private String category;
 
-    /** 1536维 Embedding 向量（由 EmbeddingModel 生成，用于向量检索） */
+    @Field(type = FieldType.Date)
+    private Date updateTime;
+
+    /** 1024 维 Embedding 向量（由 EmbeddingModel 生成，用于向量检索） */
     private List<Float> embedding;
 }

@@ -70,6 +70,54 @@ services:
     networks:
       - smart-health-net
 
+  kibana:
+    image: docker.elastic.co/kibana/kibana:8.12.0
+    container_name: smart-health-kibana
+    restart: unless-stopped
+    ports:
+      - "5601:5601"
+    environment:
+      - ELASTICSEARCH_HOSTS=["http://elasticsearch:9200"]
+      - ES_PASSWORD=${ES_PASSWORD:?ES_PASSWORD is required}
+    command: >
+      sh -c "set -e;
+             if [ ! -f /usr/share/kibana/data/kibana-token ]; then
+               echo 'Waiting for Elasticsearch...';
+               until curl -s -u elastic:$${ES_PASSWORD} http://elasticsearch:9200/_cluster/health >/dev/null 2>&1; do sleep 2; done;
+               echo 'Creating Kibana service account token...';
+               curl -s -X POST -u elastic:$${ES_PASSWORD} http://elasticsearch:9200/_security/service/elastic/kibana/credential/token/kibana-token > /tmp/token.json;
+               sed -n 's/.*\"value\":\"\\([^\"]*\\)\".*/\\1/p' /tmp/token.json > /usr/share/kibana/data/kibana-token;
+             fi;
+             export ELASTICSEARCH_SERVICEACCOUNTTOKEN=$$(cat /usr/share/kibana/data/kibana-token);
+             echo 'Starting Kibana...';
+             exec /usr/local/bin/kibana-docker"
+    volumes:
+      - kibana-token-data:/usr/share/kibana/data
+    depends_on:
+      - elasticsearch
+    networks:
+      - smart-health-net
+
+  filebeat:
+    image: docker.elastic.co/beats/filebeat:8.12.0
+    container_name: smart-health-filebeat
+    restart: unless-stopped
+    user: root
+    command: >
+      sh -c "filebeat setup -e -strict.perms=false || true;
+             exec filebeat -e -strict.perms=false"
+    environment:
+      - ES_PASSWORD=${ES_PASSWORD:?ES_PASSWORD is required}
+    volumes:
+      - ./filebeat/filebeat.yml:/usr/share/filebeat/filebeat.yml:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - app-logs:/app/logs:ro
+    depends_on:
+      - elasticsearch
+      - kibana
+    networks:
+      - smart-health-net
+
   nacos:
     image: nacos/nacos-server:v2.3.0
     container_name: smart-health-nacos
@@ -96,29 +144,33 @@ services:
     ports:
       - "8081:8081"
     environment:
-      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/smart_health?useUnicode=true&characterEncoding=utf-8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/smart_health?useUnicode=true&characterEncoding=UTF-8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true
       SPRING_DATASOURCE_USERNAME: ${DB_USERNAME:?DB_USERNAME is required}
       SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD is required}
       SPRING_DATA_REDIS_HOST: redis
       SPRING_DATA_REDIS_PORT: 6379
       NACOS_SERVER_ADDR: nacos:8848
       JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}
-      SMS_PROVIDER: ${SMS_PROVIDER:?SMS_PROVIDER must be set (aliyun or mock)}
-      SMS_ALIYUN_ACCESS_KEY_ID: ${SMS_ALIYUN_ACCESS_KEY_ID:-}
-      SMS_ALIYUN_ACCESS_KEY_SECRET: ${SMS_ALIYUN_ACCESS_KEY_SECRET:-}
-      SMS_ALIYUN_SIGN_NAME: ${SMS_ALIYUN_SIGN_NAME:-}
-      SMS_ALIYUN_TEMPLATE_CODE: ${SMS_ALIYUN_TEMPLATE_CODE:-}
+      SMS_PROVIDER: ${SMS_PROVIDER:?SMS_PROVIDER must be set (dypnsapi or mock)}
+      SMS_DYPNSAPI_ACCESS_KEY_ID: ${SMS_DYPNSAPI_ACCESS_KEY_ID:-}
+      SMS_DYPNSAPI_ACCESS_KEY_SECRET: ${SMS_DYPNSAPI_ACCESS_KEY_SECRET:-}
+      SMS_DYPNSAPI_TEMPLATE_CODE: ${SMS_DYPNSAPI_TEMPLATE_CODE:-}
+      SMS_DYPNSAPI_ENDPOINT: ${SMS_DYPNSAPI_ENDPOINT:-dypnsapi.aliyuncs.com}
+      SMS_DYPNSAPI_SIGN_NAME: ${SMS_DYPNSAPI_SIGN_NAME:-}
       EMAIL_PROVIDER: ${EMAIL_PROVIDER:-mock}
       SMTP_HOST: ${SMTP_HOST:-}
       SMTP_PORT: ${SMTP_PORT:-587}
       SMTP_USERNAME: ${SMTP_USERNAME:-}
       SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      LOG_FILE: /app/logs/smart-health-user/app.log
     depends_on:
       - mysql
       - redis
       - nacos
     networks:
       - smart-health-net
+    volumes:
+      - app-logs:/app/logs
 
   registration-service:
     build:
@@ -129,7 +181,7 @@ services:
     ports:
       - "8082:8082"
     environment:
-      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/smart_health?useUnicode=true&characterEncoding=utf-8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/smart_health?useUnicode=true&characterEncoding=UTF-8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true
       SPRING_DATASOURCE_USERNAME: ${DB_USERNAME:?DB_USERNAME is required}
       SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD is required}
       SPRING_DATA_REDIS_HOST: redis
@@ -140,6 +192,7 @@ services:
       SPRING_RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD:?RABBITMQ_PASSWORD is required}
       NACOS_SERVER_ADDR: nacos:8848
       JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}
+      LOG_FILE: /app/logs/smart-health-registration/app.log
     depends_on:
       - mysql
       - redis
@@ -147,6 +200,8 @@ services:
       - nacos
     networks:
       - smart-health-net
+    volumes:
+      - app-logs:/app/logs
 
   consultation-service:
     build:
@@ -157,7 +212,7 @@ services:
     ports:
       - "8083:8083"
     environment:
-      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/smart_health?useUnicode=true&characterEncoding=utf-8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/smart_health?useUnicode=true&characterEncoding=UTF-8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true
       SPRING_DATASOURCE_USERNAME: ${DB_USERNAME:?DB_USERNAME is required}
       SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD is required}
       SPRING_DATA_REDIS_HOST: redis
@@ -170,8 +225,10 @@ services:
       ZHIPU_API_KEY: ${ZHIPU_API_KEY}
       JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}
       UPLOAD_PATH: /app/uploads
+      LOG_FILE: /app/logs/smart-health-consultation/app.log
     volumes:
       - consultation-uploads:/app/uploads
+      - app-logs:/app/logs
     depends_on:
       - mysql
       - redis
@@ -189,7 +246,7 @@ services:
     ports:
       - "8084:8084"
     environment:
-      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/smart_health?useUnicode=true&characterEncoding=utf-8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/smart_health?useUnicode=true&characterEncoding=UTF-8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true
       SPRING_DATASOURCE_USERNAME: ${DB_USERNAME:?DB_USERNAME is required}
       SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD is required}
       SPRING_DATA_REDIS_HOST: redis
@@ -197,8 +254,10 @@ services:
       NACOS_SERVER_ADDR: nacos:8848
       JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}
       UPLOAD_PATH: /app/uploads
+      LOG_FILE: /app/logs/smart-health-prescription/app.log
     volumes:
       - prescription-uploads:/app/uploads
+      - app-logs:/app/logs
     depends_on:
       - mysql
       - redis
@@ -220,6 +279,7 @@ services:
     environment:
       NACOS_SERVER_ADDR: nacos:8848
       JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}
+      LOG_FILE: /app/logs/smart-gateway/app.log
     depends_on:
       - user-service
       - registration-service
@@ -228,6 +288,8 @@ services:
       - nacos
     networks:
       - smart-health-net
+    volumes:
+      - app-logs:/app/logs
 
   # ============================================================
   # 聚合服务（首页统计等）
@@ -241,7 +303,7 @@ services:
     ports:
       - "8080:8080"
     environment:
-      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/smart_health?useUnicode=true&characterEncoding=utf-8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/smart_health?useUnicode=true&characterEncoding=UTF-8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true
       SPRING_DATASOURCE_USERNAME: ${DB_USERNAME:?DB_USERNAME is required}
       SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD is required}
       SPRING_DATA_REDIS_HOST: redis
@@ -253,13 +315,16 @@ services:
       SPRING_ELASTICSEARCH_URIS: http://elasticsearch:9200
       SPRING_ELASTICSEARCH_USERNAME: elastic
       SPRING_ELASTICSEARCH_PASSWORD: ${ES_PASSWORD:?ES_PASSWORD is required}
+      KNOWLEDGE_INITIALIZER_ENABLED: false
       NACOS_SERVER_ADDR: nacos:8848
       JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}
       AI_API_KEY: ${AI_API_KEY}
       ZHIPU_API_KEY: ${ZHIPU_API_KEY}
       UPLOAD_PATH: /app/uploads
+      LOG_FILE: /app/logs/smart-health-app/app.log
     volumes:
       - consultation-uploads:/app/uploads
+      - app-logs:/app/logs
     depends_on:
       - mysql
       - redis
@@ -289,6 +354,8 @@ volumes:
   es-data:
   prescription-uploads:
   consultation-uploads:
+  kibana-token-data:
+  app-logs:
 
 networks:
   smart-health-net:

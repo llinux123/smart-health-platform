@@ -19,9 +19,7 @@ public class CharsetResponseFilter implements GlobalFilter, Ordered {
         exchange.getResponse().beforeCommit(() -> {
             HttpHeaders headers = exchange.getResponse().getHeaders();
             MediaType contentType = headers.getContentType();
-            if (contentType != null
-                    && MediaType.APPLICATION_JSON.getType().equals(contentType.getType())
-                    && contentType.getCharset() == null) {
+            if (contentType != null && contentType.getCharset() == null) {
                 headers.setContentType(
                         new MediaType(contentType.getType(),
                                 contentType.getSubtype(),

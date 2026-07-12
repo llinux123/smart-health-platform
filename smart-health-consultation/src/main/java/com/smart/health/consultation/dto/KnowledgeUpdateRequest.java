@@ -5,10 +5,11 @@ import jakarta.validation.constraints.Size;
 import lombok.Data;
 
 /**
- * 医学知识导入请求
+ * 医学知识更新请求（PUT 全量覆盖）
+ * 与导入请求字段一致，复用同一组校验
  */
 @Data
-public class KnowledgeImportRequest {
+public class KnowledgeUpdateRequest {
 
     @NotBlank(message = "标题不能为空")
     @Size(max = 100, message = "标题不能超过100字符")

@@ -240,7 +240,8 @@ function hasActiveFilter() {
     <!-- 顶部导航栏 -->
     <van-nav-bar title="问诊记录" fixed placeholder>
       <template #left>
-        <van-icon name="delete-o" size="18" @click="goToRecycleBin" />
+        <van-icon name="arrow-left" size="18" @click="$router.push('/home')" />
+        <van-icon name="delete-o" size="18" style="margin-left: 16px;" @click="goToRecycleBin" />
       </template>
       <template #right>
         <van-icon name="plus" size="20" @click="createNewSession" />

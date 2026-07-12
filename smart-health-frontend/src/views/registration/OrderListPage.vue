@@ -1,6 +1,6 @@
 <template>
   <div class="order-list-page page-container">
-    <van-nav-bar title="我的挂号订单" />
+    <van-nav-bar title="我的挂号订单" left-arrow @click-left="$router.push('/home')" />
 
     <van-tabs v-model:active="tab" sticky>
       <van-tab title="有效订单" name="active" />

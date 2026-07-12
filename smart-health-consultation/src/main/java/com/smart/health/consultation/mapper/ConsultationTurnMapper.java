@@ -60,6 +60,23 @@ public interface ConsultationTurnMapper {
                                @Param("citations") String citations);
 
     /**
+     * 查询会话的最后一轮（turn_number DESC LIMIT 1）
+     */
+    @Select("SELECT * FROM t_consultation_turn WHERE session_sn = #{sessionSn} ORDER BY turn_number DESC LIMIT 1")
+    ConsultationTurn selectLastTurn(@Param("sessionSn") String sessionSn);
+
+    /**
+     * 更新用户消息和AI回复（合并连续消息时使用）
+     */
+    @Update("UPDATE t_consultation_turn SET user_message = #{userMessage}, assistant_message = #{assistantMessage}, citations = #{citations}, update_time = NOW() " +
+            "WHERE session_sn = #{sessionSn} AND turn_number = #{turnNumber}")
+    int updateUserAndAssistantMessage(@Param("sessionSn") String sessionSn,
+                                      @Param("turnNumber") Integer turnNumber,
+                                      @Param("userMessage") String userMessage,
+                                      @Param("assistantMessage") String assistantMessage,
+                                      @Param("citations") String citations);
+
+    /**
      * 删除会话的所有轮次（物理删除会话时使用）
      */
     @Delete("DELETE FROM t_consultation_turn WHERE session_sn = #{sessionSn}")

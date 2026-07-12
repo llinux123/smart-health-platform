@@ -20,7 +20,7 @@
       <div class="hero-body">
         <div class="hero-top">
           <div class="hero-avatar hero-avatar--clickable" @click.stop="toggleAvatarPanel">
-            <van-image round width="44" height="44" :src="'https://fastly.jsdelivr.net/npm/@vant/assets/cat.jpeg'" />
+            <van-image round width="44" height="44" :src="avatarUrl" />
             <svg class="hero-avatar-arrow" :class="{ 'hero-avatar-arrow--open': showAvatarPanel }" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
               <polyline points="6 9 12 15 18 9" />
             </svg>
@@ -236,7 +236,7 @@ import { useRouter } from 'vue-router'
 import { showConfirmDialog, showToast } from 'vant'
 import { useUserStore } from '@/stores/user'
 import { getPatientStats } from '@/api/dashboard'
-import { logout as logoutApi } from '@/api/auth'
+import { DEFAULT_AVATAR, getProfile, logout as logoutApi } from '@/api/auth'
 import type { PatientStats } from '@/api/dashboard'
 
 const router = useRouter()
@@ -260,7 +260,19 @@ const stats = ref<PatientStats>({
   prescriptionCount: 0
 })
 
+/** 用户头像（与「我的」页面保持同源） */
+const avatarUrl = computed(() => userStore.profile?.avatar || DEFAULT_AVATAR)
+
 onMounted(async () => {
+  // 首次进入时加载用户资料，确保头像与账号信息页一致
+  if (!userStore.profile) {
+    try {
+      const data = await getProfile()
+      userStore.setProfile(data)
+    } catch {
+      // 获取失败时使用默认头像
+    }
+  }
   if (userStore.isPatient) {
     try {
       stats.value = await getPatientStats()

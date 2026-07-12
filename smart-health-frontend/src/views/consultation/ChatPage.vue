@@ -141,7 +141,7 @@ watch(streamContent, () => {
 // ============ 发送消息 ============
 async function sendMessage() {
   const message = inputMessage.value.trim()
-  if (!message || isStreaming.value || isCompleted.value || isHandoffState.value) return
+  if (!message || isStreaming.value || isCompleted.value || isPendingDoctor.value) return
 
   inputMessage.value = ''
   scrollToBottom()
@@ -149,19 +149,17 @@ async function sendMessage() {
   // 发送 SSE 请求
   await send({ sessionId: sessionSn, message })
 
-  // 流式完成后刷新轮次数据（后端已在发送 [DONE] 前持久化，但增加重试机制应对边缘情况）
-  if (streamContent.value) {
-    const previousCount = store.turns.length
+  // 刷新轮次数据
+  const previousCount = store.turns.length
+  await store.fetchTurns(sessionSn, 1)
+  if (store.turns.length === previousCount) {
+    await new Promise(resolve => setTimeout(resolve, 300))
     await store.fetchTurns(sessionSn, 1)
-    if (store.turns.length === previousCount) {
-      await new Promise(resolve => setTimeout(resolve, 300))
-      await store.fetchTurns(sessionSn, 1)
-    }
-    if (store.turns.length > 0) {
-      currentTurnNumber.value = store.turns[store.turns.length - 1].turnNumber
-    }
-    scrollToBottom()
   }
+  if (store.turns.length > 0) {
+    currentTurnNumber.value = store.turns[store.turns.length - 1].turnNumber
+  }
+  scrollToBottom()
 }
 
 function sendQuickQuestion(q: string) {
@@ -518,7 +516,7 @@ onUnmounted(() => {
       </div>
 
       <!-- 输入区域（仅 IN_PROGRESS 可用） -->
-      <div v-if="!isCompleted && !isHandoffState" class="chat-input-area">
+      <div v-if="!isCompleted && !isPendingDoctor" class="chat-input-area">
         <van-field
           v-model="inputMessage"
           placeholder="请输入您的问题..."

@@ -6,6 +6,8 @@ import org.springframework.amqp.core.BindingBuilder;
 import org.springframework.amqp.core.Queue;
 import org.springframework.amqp.core.QueueBuilder;
 import org.springframework.amqp.core.TopicExchange;
+import org.springframework.amqp.support.converter.Jackson2JsonMessageConverter;
+import org.springframework.amqp.support.converter.MessageConverter;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
@@ -71,5 +73,15 @@ public class RabbitMQConfig {
         return BindingBuilder.bind(deadLetterQueue)
                 .to(deadLetterExchange)
                 .with(CommonConstants.MQ_ROUTING_KEY_DLQ);
+    }
+
+    /**
+     * Jackson JSON 消息转换器
+     * 使 RabbitTemplate 使用 JSON 序列化/反序列化，替代默认的 SimpleMessageConverter
+     * （后者要求消息对象实现 Serializable）
+     */
+    @Bean
+    public MessageConverter messageConverter() {
+        return new Jackson2JsonMessageConverter();
     }
 }

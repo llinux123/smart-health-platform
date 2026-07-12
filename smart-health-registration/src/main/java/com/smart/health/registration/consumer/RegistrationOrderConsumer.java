@@ -1,6 +1,5 @@
 package com.smart.health.registration.consumer;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.smart.health.common.constant.CommonConstants;
 import com.smart.health.registration.config.ScheduleRedisConfig;
 import com.smart.health.registration.dto.SeckillOrderMessage;
@@ -22,15 +21,12 @@ public class RegistrationOrderConsumer {
 
     private final RegistrationOrderService registrationOrderService;
     private final ScheduleRedisConfig scheduleRedisConfig;
-    private final ObjectMapper objectMapper;
 
     @RabbitListener(queues = CommonConstants.MQ_QUEUE_REGISTRATION_ORDER)
-    public void handleOrderMessage(String message) {
-        log.info("收到挂号订单消息：{}", message);
+    public void handleOrderMessage(SeckillOrderMessage orderMessage) {
+        log.info("收到挂号订单消息：{}", orderMessage);
 
         try {
-            SeckillOrderMessage orderMessage = objectMapper.readValue(message, SeckillOrderMessage.class);
-
             // 幂等性检查：订单是否已创建
             RegistrationOrder existingOrder = registrationOrderService.getByOrderSn(orderMessage.getOrderSn());
             if (existingOrder != null) {
@@ -49,7 +45,7 @@ public class RegistrationOrderConsumer {
             log.info("挂号订单创建成功，orderSn={}", orderMessage.getOrderSn());
 
         } catch (Exception e) {
-            log.error("处理挂号订单消息失败，message={}", message, e);
+            log.error("处理挂号订单消息失败，orderSn={}", orderMessage.getOrderSn(), e);
             // 不再重新抛出异常，避免 RabbitMQ 无限重试
             // 幂等性检查保证下次手动重试时不会重复创建订单
         }

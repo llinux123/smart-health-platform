@@ -11,12 +11,19 @@
           type="number"
           placeholder="请输入医生ID"
           :rules="[{ required: true, message: '请输入医生ID' }]"
+          @blur="onDoctorIdBlur"
+        />
+        <van-field
+          v-model="doctorNameLabel"
+          label="医生姓名"
+          readonly
+          placeholder="输入医生ID后自动显示"
         />
         <van-field
           v-model="form.deptName"
           label="科室"
-          placeholder="如：内科、外科"
-          :rules="[{ required: true, message: '请输入科室名称' }]"
+          placeholder="输入医生ID后自动填充"
+          :rules="[{ required: true, message: '科室不能为空' }]"
         />
         <van-field
           v-model="form.workDate"
@@ -81,25 +88,62 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { ref, computed } from 'vue'
 import { useRouter } from 'vue-router'
-import { showToast, showSuccessToast } from 'vant'
-import { createSchedule } from '@/api/registration'
+import { showSuccessToast, showFailToast } from 'vant'
+import { createSchedule, getDoctorDetail } from '@/api/registration'
 import { getShiftName } from '@/utils/format'
 
 const router = useRouter()
-const formRef = ref(null)
+const formRef = ref<any>(null)
 const submitting = ref(false)
 
 const form = ref({
   doctorId: '',
+  departmentId: null as number | null,
   deptName: '',
   workDate: '',
-  shift: null,
+  shift: null as number | null,
   totalCount: '',
   price: ''
 })
+
+const doctorNameLabel = ref('')
+const doctorLoading = ref(false)
+
+/** 医生ID失焦后自动查询医生详情，回填科室 */
+async function onDoctorIdBlur() {
+  const id = Number(form.value.doctorId)
+  if (!id || isNaN(id)) {
+    doctorNameLabel.value = ''
+    form.value.deptName = ''
+    form.value.departmentId = null
+    return
+  }
+
+  doctorLoading.value = true
+  try {
+    const res = await getDoctorDetail(id)
+    const data = res?.data ?? res
+    if (data) {
+      doctorNameLabel.value = data.name || ''
+      form.value.deptName = data.deptName || ''
+      form.value.departmentId = data.primaryDepartmentId ?? null
+    } else {
+      doctorNameLabel.value = ''
+      form.value.deptName = ''
+      form.value.departmentId = null
+      showFailToast({ message: '未找到该医生', duration: 1500 })
+    }
+  } catch {
+    doctorNameLabel.value = ''
+    form.value.deptName = ''
+    form.value.departmentId = null
+  } finally {
+    doctorLoading.value = false
+  }
+}
 
 const rules = {
   doctorId: [{ required: true, message: '请输入医生ID' }],
@@ -122,7 +166,7 @@ const datePickerValue = ref([
   String(today.getDate()).padStart(2, '0')
 ])
 
-function onDateConfirm({ selectedValues }) {
+function onDateConfirm({ selectedValues }: { selectedValues: string[] }) {
   form.value.workDate = selectedValues.join('-')
   showDatePicker.value = false
 }
@@ -135,13 +179,14 @@ const shiftOptions = [
   { text: '晚上', value: 3 }
 ]
 
-function onShiftConfirm({ selectedOptions }) {
+function onShiftConfirm({ selectedOptions }: { selectedOptions: { text: string; value: number }[] }) {
   form.value.shift = selectedOptions[0]?.value
   showShiftPicker.value = false
 }
 
 async function onSubmit() {
   try {
+    if (!formRef.value) return
     await formRef.value.validate()
   } catch {
     return
@@ -151,13 +196,14 @@ async function onSubmit() {
   try {
     await createSchedule({
       doctorId: Number(form.value.doctorId),
+      departmentId: form.value.departmentId,
       deptName: form.value.deptName,
       workDate: form.value.workDate,
       shift: form.value.shift,
       totalCount: Number(form.value.totalCount),
       price: Number(form.value.price)
     })
-    showSuccessToast('排班创建成功')
+    showSuccessToast({ message: '排班创建成功', duration: 1500 })
     setTimeout(() => router.back(), 1500)
   } catch (err) {
     // 错误已在拦截器中处理

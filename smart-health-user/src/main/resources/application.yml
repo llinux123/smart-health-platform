@@ -13,9 +13,11 @@ spring:
   # MySQL
   datasource:
     driver-class-name: com.mysql.cj.jdbc.Driver
-    url: jdbc:mysql://localhost:3306/smart_health?useUnicode=true&characterEncoding=utf-8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true
+    url: jdbc:mysql://localhost:3306/smart_health?useUnicode=true&characterEncoding=UTF-8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true
     username: ${DB_USERNAME:root}
     password: ${DB_PASSWORD:root123456}
+    hikari:
+      connection-init-sql: SET NAMES utf8mb4 COLLATE utf8mb4_unicode_ci
 
   # Redis
   data:
@@ -53,14 +55,15 @@ jwt:
 # 禁用 common 模块的通用 JWT Filter（user-service 使用自己的 DB-backed Filter）
 jwt.auth.filter.enabled: false
 
-# 短信服务配置（mock=本地日志, aliyun=阿里云SMS）
+# 短信服务配置（mock=本地日志, dypnsapi=阿里云号码认证）
 sms:
-  provider: ${SMS_PROVIDER:?SMS_PROVIDER must be set (aliyun or mock)}
-  aliyun:
-    access-key-id: ${SMS_ALIYUN_ACCESS_KEY_ID:}
-    access-key-secret: ${SMS_ALIYUN_ACCESS_KEY_SECRET:}
-    sign-name: ${SMS_ALIYUN_SIGN_NAME:}
-    template-code: ${SMS_ALIYUN_TEMPLATE_CODE:}
+  provider: ${SMS_PROVIDER:?SMS_PROVIDER must be set (dypnsapi or mock)}
+  dypnsapi:
+    access-key-id: ${SMS_DYPNSAPI_ACCESS_KEY_ID:}
+    access-key-secret: ${SMS_DYPNSAPI_ACCESS_KEY_SECRET:}
+    template-code: ${SMS_DYPNSAPI_TEMPLATE_CODE:}
+    endpoint: ${SMS_DYPNSAPI_ENDPOINT:dypnsapi.aliyuncs.com}
+    sign-name: ${SMS_DYPNSAPI_SIGN_NAME:}
 
   # Mail (SMTP)
   mail:
@@ -97,3 +100,5 @@ knife4j:
 logging:
   level:
     com.smart.health: debug
+  file:
+    name: ${LOG_FILE:}

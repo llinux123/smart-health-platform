@@ -114,7 +114,7 @@ function removeFile(item) {
 function beforeRead(file) {
   const files = Array.isArray(file) ? file : [file]
   for (const f of files) {
-    if (f.size > 10 * 1024 * 1024) {
+    if (f.size > 10 * 1000 * 1000) {
       showToast('文件大小不能超过 10MB')
       return false
     }
@@ -135,7 +135,21 @@ async function startAnalyze() {
   analyzing.value = true
   try {
     const typeValue = imageType.value === '检查报告' ? 'REPORT' : 'IMAGE'
-    const rawFiles = fileList.value.map(item => item.file).filter(Boolean)
+    const rawFiles = fileList.value
+      .map(item => {
+        if (item instanceof File) return item
+        if (item.file instanceof File) return item.file
+        if (item.url && item.file) return item.file
+        return null
+      })
+      .filter(Boolean)
+
+    if (rawFiles.length === 0) {
+      showToast('文件数据异常，请重新选择文件')
+      analyzing.value = false
+      return
+    }
+
     const result = await multimodalAnalyze(rawFiles, typeValue)
 
     // 使用 replace 导航到分析结果页，避免返回时看到旧结果

@@ -65,10 +65,10 @@
             <artifactId>spring-cloud-starter-alibaba-nacos-discovery</artifactId>
         </dependency>
 
-        <!-- 阿里云 SMS SDK (V2) -->
+        <!-- 阿里云号码认证 SDK（Dypnsapi V2） -->
         <dependency>
             <groupId>com.aliyun</groupId>
-            <artifactId>dysmsapi20170525</artifactId>
+            <artifactId>dypnsapi20170525</artifactId>
         </dependency>
 
         <!-- Spring Boot Mail (SMTP) -->

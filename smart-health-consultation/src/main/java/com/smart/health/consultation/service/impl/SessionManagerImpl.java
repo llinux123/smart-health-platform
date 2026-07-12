@@ -104,6 +104,8 @@ public class SessionManagerImpl implements SessionManager {
         List<ConsultationTurn> turns = turnMapper.selectBySessionSnDesc(sessionSn);
         PageInfo<ConsultationTurn> pageInfo = new PageInfo<>(turns);
 
+        // 数据库按 turn_number DESC（最新在前），前端需要 ASC（最旧在前）
+        Collections.reverse(turns);
         List<TurnVO> voList = turns.stream().map(this::toTurnVO).toList();
         return PageResult.of(voList, pageInfo.getTotal(), page, size);
     }

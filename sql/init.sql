@@ -9,6 +9,8 @@
 -- 4. MySQL 要求: 8.0+(JSON 字段、utf8mb4_unicode_ci 排序)
 -- ============================================================
 
+SET NAMES utf8mb4;
+
 CREATE DATABASE IF NOT EXISTS smart_health DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
 USE smart_health;
@@ -280,7 +282,7 @@ CREATE TABLE IF NOT EXISTS `t_consultation_rating` (
 
 -- 1. 默认管理员 - V3(密码 admin123,BCrypt 加密)
 INSERT INTO `t_staff` (`username`, `password`, `real_name`, `phone`, `role`) VALUES
-('admin', '$2a$10$N.zmdr9k7uOCQb376NoUnuTJ8iAt6Z5EHsM8lE9lBOsl7iAt6Z5EH', '系统管理员', '13800000000', 'ADMIN');
+('admin', '$2b$10$UtwOO7w8w2JQf.K2YDZPQOgQ1ZE/qdStSKxzTMpTY/1UCBoekxb1q', '系统管理员', '13800000000', 'ADMIN');
 
 -- 2. 预置医生 - V4
 INSERT INTO `t_doctor` (`id`, `name`, `title`, `dept_name`, `specialty`, `intro`) VALUES
@@ -430,9 +432,28 @@ INSERT INTO `t_staff` (`username`, `password`, `real_name`, `phone`, `role`) VAL
 -- 13. 新增运维账号(V7)
 -- superadmin / operator / monitor,密码分别为 superadmin123 / operator123 / monitor123(BCrypt 加密)
 INSERT INTO `t_staff` (`username`, `password`, `real_name`, `phone`, `role`) VALUES
-('superadmin', '$2b$12$vX7ELwzsU3ccj1zj8XCG.eG06cZT1gEFc1gDxBKX57EqGUrGnCd1G', '超级管理员', '13800000020', 'ADMIN'),
-('operator',   '$2b$12$TQY0nlbfwFoxfScURR2xN.nBMGS53l/CfffJvKreAold95Gcz.0.e', '运维操作员', '13800000021', 'ADMIN'),
-('monitor',    '$2b$12$TQY0nlbfwFoxfScURR2xN.nBMGS53l/CfffJvKreAold95Gcz.0.e', '系统监控员', '13800000022', 'ADMIN');
+('superadmin', '$2b$10$LhBMBZlFPfC3mOV1l43JS.VjmvsJhqxQBdSGi9cIEqRJpYkabRCFW', '超级管理员', '13800000020', 'ADMIN'),
+('operator',   '$2b$10$.nyNPyumGPTmwBzmgBsO2./XiNjQSkXvX6JqIBdT/d.QvmXkRxe5S', '运维操作员', '13800000021', 'ADMIN'),
+('monitor',    '$2b$10$QF/bcBBlWILpUiSTSp1zluNQErYKU7ih6CUxUehkKPELZqzsekPam', '系统监控员', '13800000022', 'ADMIN');
+
+-- 14. 初始化药房库存数据(pharmacy_id=1, 为全部 15 种药品生成初始库存)
+-- 注意: medicine_id 与第 6 节 t_medicine 插入顺序一致(1~15)
+INSERT INTO `t_pharmacy_inventory` (`pharmacy_id`, `medicine_id`, `medicine_name`, `stock`, `lock_stock`, `unit`) VALUES
+(1, 1,  '阿莫西林胶囊',       200, 0, '盒'),
+(1, 2,  '布洛芬缓释胶囊',     150, 0, '盒'),
+(1, 3,  '奥美拉唑肠溶胶囊',   120, 0, '盒'),
+(1, 4,  '头孢克洛胶囊',       100, 0, '盒'),
+(1, 5,  '复方甘草片',         80,  0, '瓶'),
+(1, 6,  '蒙脱石散',           100, 0, '盒'),
+(1, 7,  '氯雷他定片',         90,  0, '盒'),
+(1, 8,  '硝苯地平控释片',     60,  0, '盒'),
+(1, 9,  '二甲双胍片',         150, 0, '盒'),
+(1, 10, '阿托伐他汀钙片',     50,  0, '盒'),
+(1, 11, '红霉素软膏',         100, 0, '支'),
+(1, 12, '莫匹罗星软膏',       80,  0, '支'),
+(1, 13, '复方丹参滴丸',       120, 0, '瓶'),
+(1, 14, '维生素C片',          200, 0, '瓶'),
+(1, 15, '氯化钠注射液',       300, 0, '瓶');
 
 -- ============================================================
 -- 完成

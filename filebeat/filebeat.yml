@@ -1,0 +1,26 @@
+filebeat.inputs:
+  - type: log
+    paths:
+      - '/app/logs/*/*.log'
+
+processors:
+  - add_docker_metadata:
+      host: "unix:///var/run/docker.sock"
+
+setup.template.enabled: true
+setup.ilm.enabled: true
+
+setup.kibana:
+  host: "http://kibana:5601"
+  username: "elastic"
+  password: "${ES_PASSWORD}"
+
+setup.dashboards.enabled: false
+
+output.elasticsearch:
+  hosts: ["http://elasticsearch:9200"]
+  username: "elastic"
+  password: "${ES_PASSWORD}"
+
+logging.level: info
+logging.to_stderr: true

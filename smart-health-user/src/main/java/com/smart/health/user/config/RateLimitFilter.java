@@ -68,24 +68,28 @@ public class RateLimitFilter extends OncePerRequestFilter {
         String clientIp = getClientIp(request);
         String key = RATE_LIMIT_PREFIX + path + ":" + clientIp;
 
-        Long currentCount = redisTemplate.opsForValue().increment(key);
-        if (currentCount == null) {
-            filterChain.doFilter(request, response);
-            return;
-        }
+        try {
+            Long currentCount = redisTemplate.opsForValue().increment(key);
+            if (currentCount == null) {
+                filterChain.doFilter(request, response);
+                return;
+            }
 
-        if (currentCount == 1) {
-            redisTemplate.expire(key, config.window);
-        }
+            if (currentCount == 1) {
+                redisTemplate.expire(key, config.window);
+            }
 
-        if (currentCount > config.maxRequests) {
-            log.warn("Rate limit exceeded for path={}, ip={}", path, clientIp);
-            response.setContentType(MediaType.APPLICATION_JSON_VALUE);
-            response.setCharacterEncoding("UTF-8");
-            response.setStatus(429);
-            response.getWriter().write(objectMapper.writeValueAsString(
-                    Result.fail(429, config.message)));
-            return;
+            if (currentCount > config.maxRequests) {
+                log.warn("Rate limit exceeded for path={}, ip={}", path, clientIp);
+                response.setContentType(MediaType.APPLICATION_JSON_VALUE);
+                response.setCharacterEncoding("UTF-8");
+                response.setStatus(429);
+                response.getWriter().write(objectMapper.writeValueAsString(
+                        Result.fail(429, config.message)));
+                return;
+            }
+        } catch (Exception e) {
+            log.warn("Rate limit Redis 不可用，放行请求: {}", e.getMessage());
         }
 
         filterChain.doFilter(request, response);

@@ -4,6 +4,8 @@ import co.elastic.clients.elasticsearch.ElasticsearchClient;
 import co.elastic.clients.elasticsearch.core.CountRequest;
 import co.elastic.clients.elasticsearch.core.IndexRequest;
 import co.elastic.clients.elasticsearch.indices.CreateIndexRequest;
+import co.elastic.clients.elasticsearch.indices.GetMappingRequest;
+import co.elastic.clients.elasticsearch.indices.GetMappingResponse;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.smart.health.consultation.entity.MedicalKnowledgeDocument;
@@ -14,12 +16,14 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.core.io.Resource;
 import org.springframework.stereotype.Component;
 
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.Collections;
+import java.util.Date;
 import java.util.List;
 
 /**
@@ -27,15 +31,17 @@ import java.util.List;
  * 启动时创建 ES 索引（ik 分词 + dense_vector mapping）并从外部 JSON 文件加载医学知识文档
  * 种子数据来源由 knowledge.seed.location 配置，默认 classpath:knowledge/medical-knowledge-seed.json
  * 可通过 knowledge.seed.enabled=false 关闭种子数据加载
+ * 可通过 knowledge.initializer.enabled=false 关闭整个初始化器（多服务部署时避免重复执行）
  * 直接使用 ElasticsearchClient (ES Java Client) 避免 Spring Data ES 多模块严格模式问题
  */
 @Slf4j
 @Component
+@ConditionalOnProperty(name = "knowledge.initializer.enabled", havingValue = "true", matchIfMissing = true)
 @RequiredArgsConstructor
 public class MedicalKnowledgeInitializer implements ApplicationRunner {
 
     private static final String INDEX_NAME = "idx_medical_knowledge";
-    private static final int EMBEDDING_DIMS = 1536;
+    public static final int EMBEDDING_DIMS = 1024;
 
     private final ElasticsearchClient esClient;
     private final ObjectMapper objectMapper;
@@ -53,6 +59,13 @@ public class MedicalKnowledgeInitializer implements ApplicationRunner {
     public void run(ApplicationArguments args) {
         try {
             boolean exists = esClient.indices().exists(e -> e.index(INDEX_NAME)).value();
+            if (exists) {
+                if (isMappingDimsMismatch()) {
+                    log.warn("ES 索引 mapping 维度与配置不匹配（期望 {}），删除重建", EMBEDDING_DIMS);
+                    esClient.indices().delete(d -> d.index(INDEX_NAME));
+                    exists = false;
+                }
+            }
             if (!exists) {
                 createIndexWithMapping();
                 log.info("创建 ES 索引（含 mapping）: {}", INDEX_NAME);
@@ -71,7 +84,9 @@ public class MedicalKnowledgeInitializer implements ApplicationRunner {
                 log.info("种子数据为空或已禁用（knowledge.seed.enabled=false），跳过文档导入");
                 return;
             }
+            Date now = new Date();
             for (MedicalKnowledgeDocument doc : docs) {
+                doc.setUpdateTime(now);
                 // 生成 embedding 向量
                 if (embeddingModel != null) {
                     try {
@@ -96,6 +111,33 @@ public class MedicalKnowledgeInitializer implements ApplicationRunner {
     }
 
     /**
+     * 检查 ES 索引中 embedding 字段的维度是否与 EMBEDDING_DIMS 匹配
+     * 不匹配返回 true（需要删除重建）
+     */
+    private boolean isMappingDimsMismatch() {
+        try {
+            GetMappingResponse mapping = esClient.indices().getMapping(GetMappingRequest.of(m -> m.index(INDEX_NAME)));
+            var indexMapping = mapping.result().get(INDEX_NAME);
+            if (indexMapping == null) {
+                return true;
+            }
+            var props = indexMapping.mappings().properties();
+            if (props == null || !props.containsKey("embedding")) {
+                return true;
+            }
+            var embeddingProp = props.get("embedding");
+            if (!embeddingProp.isDenseVector()) {
+                return true;
+            }
+            int actualDims = embeddingProp.denseVector().dims();
+            return actualDims != EMBEDDING_DIMS;
+        } catch (Exception e) {
+            log.warn("检查 mapping 维度失败，默认按不匹配处理: {}", e.getMessage());
+            return true;
+        }
+    }
+
+    /**
      * 创建索引并指定 mapping（ik 分词器 + dense_vector）
      * 若 ik 不可用则降级为 standard 分词器
      */
@@ -113,6 +155,7 @@ public class MedicalKnowledgeInitializer implements ApplicationRunner {
                                     .analyzer(analyzer)
                                     .searchAnalyzer("ik_smart".equals(analyzer) ? "ik_smart" : "standard")))
                             .properties("category", p -> p.keyword(k -> k))
+                            .properties("updateTime", p -> p.date(d -> d))
                             .properties("embedding", p -> p.denseVector(dv -> dv
                                     .dims(EMBEDDING_DIMS)
                                     .index(true)

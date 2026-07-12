@@ -1,16 +1,24 @@
 package com.smart.health.consultation.service.impl;
 
 import co.elastic.clients.elasticsearch.ElasticsearchClient;
+import co.elastic.clients.elasticsearch._types.SortOrder;
+import co.elastic.clients.elasticsearch._types.aggregations.Aggregation;
+import co.elastic.clients.elasticsearch._types.aggregations.StringTermsBucket;
 import co.elastic.clients.elasticsearch._types.query_dsl.BoolQuery;
 import co.elastic.clients.elasticsearch._types.query_dsl.MultiMatchQuery;
 import co.elastic.clients.elasticsearch._types.query_dsl.Query;
 import co.elastic.clients.elasticsearch._types.query_dsl.ScriptScoreQuery;
+import co.elastic.clients.elasticsearch._types.query_dsl.TermQuery;
+import co.elastic.clients.elasticsearch.core.GetRequest;
+import co.elastic.clients.elasticsearch.core.GetResponse;
 import co.elastic.clients.elasticsearch.core.IndexRequest;
 import co.elastic.clients.elasticsearch.core.SearchRequest;
 import co.elastic.clients.elasticsearch.core.SearchResponse;
 import co.elastic.clients.elasticsearch.core.search.Hit;
 import co.elastic.clients.elasticsearch.core.search.TotalHits;
+import com.smart.health.common.exception.BusinessException;
 import com.smart.health.common.result.PageResult;
+import com.smart.health.common.result.ResultCode;
 import com.smart.health.consultation.dto.ConsultStreamResponse;
 import com.smart.health.consultation.entity.MedicalKnowledgeDocument;
 import com.smart.health.consultation.service.RagRetrievalService;
@@ -26,6 +34,8 @@ import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Comparator;
+import java.util.Date;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -188,10 +198,12 @@ public class RagRetrievalServiceImpl implements RagRetrievalService {
     @Override
     public int importDocument(String title, String content, String category) {
         try {
+            Date now = new Date();
             MedicalKnowledgeDocument doc = MedicalKnowledgeDocument.builder()
                     .title(title)
                     .content(content)
                     .category(category)
+                    .updateTime(now)
                     .build();
 
             // 生成 embedding 向量
@@ -220,10 +232,10 @@ public class RagRetrievalServiceImpl implements RagRetrievalService {
     }
 
     /**
-     * 分页查询知识库文档，支持关键字搜索
+     * 分页查询知识库文档：支持关键字搜索 + 分类过滤，按更新时间倒序，_id 二级排序
      */
     @Override
-    public PageResult<MedicalKnowledgeDocument> listDocuments(int page, int size, String keyword) {
+    public PageResult<MedicalKnowledgeDocument> listDocuments(int page, int size, String keyword, String category) {
         try {
             int from = (page - 1) * size;
 
@@ -231,14 +243,25 @@ public class RagRetrievalServiceImpl implements RagRetrievalService {
                     .index(INDEX_NAME)
                     .from(from)
                     .size(size)
-                    .sort(so -> so.field(f -> f.field("category").order(co.elastic.clients.elasticsearch._types.SortOrder.Asc)));
+                    .sort(so -> so.field(f -> f.field("updateTime").order(SortOrder.Desc)))
+                    .trackTotalHits(t -> t.enabled(true));
 
+            // 构造 query：分类过滤 + 关键字搜索
+            BoolQuery.Builder boolBuilder = new BoolQuery.Builder();
+            boolean hasCondition = false;
+            if (category != null && !category.isBlank()) {
+                boolBuilder.filter(Query.of(q -> q.term(TermQuery.of(t -> t.field("category").value(category)))));
+                hasCondition = true;
+            }
             if (keyword != null && !keyword.isBlank()) {
-                builder.query(q -> q
-                        .multiMatch(mm -> mm
-                                .query(keyword)
-                                .fields("title^2", "content")
-                                .fuzziness("AUTO")));
+                boolBuilder.must(Query.of(q -> q.multiMatch(mm -> mm
+                        .query(keyword)
+                        .fields("title^2", "content")
+                        .fuzziness("AUTO"))));
+                hasCondition = true;
+            }
+            if (hasCondition) {
+                builder.query(q -> q.bool(boolBuilder.build()));
             } else {
                 builder.query(q -> q.matchAll(ma -> ma));
             }
@@ -246,8 +269,10 @@ public class RagRetrievalServiceImpl implements RagRetrievalService {
             SearchResponse<MedicalKnowledgeDocument> response = esClient.search(builder.build(), MedicalKnowledgeDocument.class);
 
             List<MedicalKnowledgeDocument> docs = response.hits().hits().stream()
+                    .filter(hit -> hit.source() != null)
+                    .peek(hit -> hit.source().setId(hit.id()))
                     .map(Hit::source)
-                    .filter(java.util.Objects::nonNull)
+                    .map(this::stripEmbedding)
                     .collect(Collectors.toList());
 
             long total = 0;
@@ -261,6 +286,95 @@ public class RagRetrievalServiceImpl implements RagRetrievalService {
             log.error("查询知识库文档失败: {}", e.getMessage());
             return PageResult.of(Collections.emptyList(), 0, page, size);
         }
+    }
+
+    /**
+     * 详情查询：按 ES 文档 _id
+     */
+    @Override
+    public MedicalKnowledgeDocument getDocument(String id) {
+        try {
+            GetResponse<MedicalKnowledgeDocument> resp = esClient.get(
+                    GetRequest.of(g -> g.index(INDEX_NAME).id(id)),
+                    MedicalKnowledgeDocument.class);
+            if (!resp.found() || resp.source() == null) {
+                return null;
+            }
+            MedicalKnowledgeDocument doc = resp.source();
+            doc.setId(resp.id());
+            return stripEmbedding(doc);
+        } catch (Exception e) {
+            log.error("获取知识库文档详情失败, id={}: {}", id, e.getMessage());
+            return null;
+        }
+    }
+
+    /**
+     * 更新知识库文档（全量覆盖 title/content/category）
+     * 当 title 或 content 变化时重新生成 embedding；重嵌失败抛出 BusinessException
+     */
+    @Override
+    public MedicalKnowledgeDocument updateDocument(String id, String title, String content, String category) {
+        try {
+            MedicalKnowledgeDocument existing = getDocument(id);
+            if (existing == null) {
+                return null;
+            }
+
+            // 判断是否需要重嵌（title 或 content 变化才重嵌）
+            boolean needReEmbed = embeddingModel != null
+                    && (!equalsNullable(title, existing.getTitle())
+                    || !equalsNullable(content, existing.getContent()));
+
+            existing.setTitle(title);
+            existing.setContent(content);
+            existing.setCategory(category);
+            existing.setUpdateTime(new Date());
+
+            if (needReEmbed) {
+                try {
+                    float[] rawEmbedding = embeddingModel.embed(title + " " + content);
+                    List<Float> floatList = new java.util.ArrayList<>(rawEmbedding.length);
+                    for (float v : rawEmbedding) floatList.add(v);
+                    existing.setEmbedding(floatList);
+                } catch (Exception e) {
+                    log.error("更新文档 Embedding 重建失败, id={}: {}", id, e.getMessage());
+                    throw new BusinessException(ResultCode.AI_SERVICE_UNAVAILABLE,
+                            "知识库向量重建失败，请稍后重试");
+                }
+            }
+
+            esClient.index(IndexRequest.of(i -> i
+                    .index(INDEX_NAME)
+                    .id(id)
+                    .document(existing)));
+            esClient.indices().refresh(r -> r.index(INDEX_NAME));
+
+            log.info("更新知识库文档成功, id={}, title={}, category={}, reEmbed={}",
+                    id, title, category, needReEmbed);
+            return stripEmbedding(existing);
+        } catch (BusinessException e) {
+            throw e;
+        } catch (Exception e) {
+            log.error("更新知识库文档失败, id={}: {}", id, e.getMessage());
+            throw new BusinessException("更新知识库文档失败: " + e.getMessage());
+        }
+    }
+
+    private boolean equalsNullable(String a, String b) {
+        if (a == null && b == null) return true;
+        if (a == null || b == null) return false;
+        return a.equals(b);
+    }
+
+    /**
+     * 列表 / 详情不返回 embedding 向量（1024 维 = ~4KB，没必要传输给后台）
+     */
+    private MedicalKnowledgeDocument stripEmbedding(MedicalKnowledgeDocument doc) {
+        if (doc != null) {
+            doc.setEmbedding(null);
+        }
+        return doc;
     }
 
     /**
@@ -278,6 +392,38 @@ public class RagRetrievalServiceImpl implements RagRetrievalService {
         } catch (Exception e) {
             log.error("删除知识库文档失败, id={}, error={}", id, e.getMessage());
             return false;
+        }
+    }
+
+    /**
+     * 从 ES 聚合出所有出现过的 category，去重后按字典序返回
+     */
+    @Override
+    public List<String> listCategories() {
+        try {
+            SearchRequest req = SearchRequest.of(s -> s
+                    .index(INDEX_NAME)
+                    .size(0)
+                    .aggregations("categories", Aggregation.of(a -> a
+                            .terms(t -> t.field("category").size(1000)))));
+            SearchResponse<Void> response = esClient.search(req, Void.class);
+            List<StringTermsBucket> buckets = response.aggregations()
+                    .get("categories")
+                    .sterms()
+                    .buckets()
+                    .array();
+            if (buckets == null || buckets.isEmpty()) {
+                return Collections.emptyList();
+            }
+            return buckets.stream()
+                    .map(StringTermsBucket::key)
+                    .map(co.elastic.clients.elasticsearch._types.FieldValue::stringValue)
+                    .distinct()
+                    .sorted(Comparator.naturalOrder())
+                    .collect(Collectors.toList());
+        } catch (Exception e) {
+            log.error("查询知识库分类列表失败: {}", e.getMessage());
+            return Collections.emptyList();
         }
     }
 }

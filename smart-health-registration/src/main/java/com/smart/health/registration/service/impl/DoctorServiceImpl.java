@@ -35,6 +35,7 @@ public class DoctorServiceImpl implements DoctorService {
         vo.setTitle(doctor.getTitle());
         vo.setAvatar(doctor.getAvatar());
         vo.setDeptName(doctor.getDeptName());
+        vo.setPrimaryDepartmentId(doctor.getPrimaryDepartmentId());
         vo.setSpecialty(doctor.getSpecialty());
         vo.setIntro(doctor.getIntro());
         return vo;

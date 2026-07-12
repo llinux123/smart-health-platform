@@ -23,45 +23,7 @@
         我的
       </van-tabbar-item>
     </template>
-    <!-- 医生导航 -->
-    <template v-else-if="userStore.isDoctor">
-      <van-tabbar-item to="/doctor/consultations">
-        <span class="tab-icon-wrapper">
-          <svg class="tab-icon" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M21 15C21 15.5304 20.7893 16.0391 20.4142 16.4142C20.0391 16.7893 19.5304 17 19 17H7L3 21V5C3 4.46957 3.21071 3.96086 3.58579 3.58579C3.96086 3.21071 4.46957 3 5 3H19C19.5304 3 20.0391 3.21071 20.4142 3.58579C20.7893 3.96086 21 4.46957 21 5V15Z" />
-          </svg>
-        </span>
-        接诊
-      </van-tabbar-item>
-      <van-tabbar-item to="/admin/prescription/issue">
-        <span class="tab-icon-wrapper">
-          <svg class="tab-icon" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M12 20H9C8.46957 20 7.96086 19.7893 7.58579 19.4142C7.21071 19.0391 7 18.5304 7 18V6C7 5.46957 7.21071 4.96086 7.58579 4.58579C7.96086 4.21071 8.46957 4 9 4H12" />
-            <path d="M16 2L20 6L16 10" />
-            <line x1="10" y1="12" x2="20" y2="12" />
-          </svg>
-        </span>
-        开方
-      </van-tabbar-item>
-    </template>
-    <!-- 药师导航 -->
-    <template v-else-if="userStore.isPharmacist">
-      <van-tabbar-item to="/admin/prescription/review">
-        <span class="tab-icon-wrapper">
-          <svg class="tab-icon" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M14 2H6C5.46957 2 4.96086 2.21071 4.58579 2.58579C4.21071 2.96086 4 3.46957 4 4V20C4 20.5304 4.21071 21.0391 4.58579 21.4142C4.96086 21.7893 5.46957 22 6 22H18C18.5304 22 19.0391 21.7893 19.4142 21.4142C19.7893 21.0391 20 20.5304 20 20V8L14 2Z" />
-            <polyline points="14 2 14 8 20 8" />
-            <line x1="16" y1="13" x2="8" y2="13" />
-            <line x1="16" y1="17" x2="8" y2="17" />
-          </svg>
-        </span>
-        审核
-      </van-tabbar-item>
-    </template>
-    <!-- 管理员导航（仅首页） -->
-    <template v-else-if="userStore.isAdmin">
-      <!-- 管理员仅展示首页，通过工作台进入各功能 -->
-    </template>
+    <!-- 员工角色（医生 / 药师 / 管理员）底部栏仅展示首页，通过首页工作台或快捷入口访问各功能 -->
   </van-tabbar>
 </template>
 
@@ -77,9 +39,6 @@ const active = ref(0)
 const tabMap: Record<string, number> = {
   '/home': 0,
   '/my': 1,
-  '/doctor/consultations': 1,
-  '/admin/prescription/issue': 2,
-  '/admin/prescription/review': 1,
   '/admin/schedule': 1,
   '/admin/inventory': 1,
   '/admin/employees': 1

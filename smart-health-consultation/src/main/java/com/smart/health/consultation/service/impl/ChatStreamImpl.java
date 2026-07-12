@@ -4,6 +4,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.smart.health.common.exception.BusinessException;
+import com.smart.health.consultation.config.FileUploadConfig;
 import com.smart.health.consultation.constant.SessionStatus;
 import com.smart.health.consultation.dto.*;
 import com.smart.health.consultation.entity.ConsultationSession;
@@ -14,17 +15,25 @@ import com.smart.health.consultation.service.ChatStream;
 import com.smart.health.consultation.service.RagRetrievalService;
 import com.smart.health.consultation.service.SessionAccessor;
 import com.smart.health.consultation.service.SessionManager;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.messages.*;
 import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.chat.prompt.Prompt;
+import org.springframework.ai.content.Media;
 import org.springframework.ai.openai.OpenAiChatModel;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.core.io.FileSystemResource;
+import org.springframework.core.io.Resource;
 import org.springframework.stereotype.Service;
+import org.springframework.util.MimeType;
+import org.springframework.util.MimeTypeUtils;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 import reactor.core.Disposable;
 
 import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -36,10 +45,12 @@ import java.util.concurrent.atomic.AtomicReference;
  */
 @Slf4j
 @Service
-@RequiredArgsConstructor
 public class ChatStreamImpl implements ChatStream {
 
     private static final long SSE_TIMEOUT = 5 * 60 * 1000L;
+
+    /** 连续消息合并窗口（秒）：在此时间内发送的下一条消息将合并到上一轮 */
+    private static final long MERGE_WINDOW_SECONDS = 30;
 
     private final ConsultationTurnMapper turnMapper;
     private final ConsultationSessionMapper sessionMapper;
@@ -47,7 +58,29 @@ public class ChatStreamImpl implements ChatStream {
     private final SessionManager sessionManager;
     private final RagRetrievalService ragRetrievalService;
     private final OpenAiChatModel chatModel;
+    private final ChatModel multimodalChatModel;
+    private final FileUploadConfig fileUploadConfig;
     private final ObjectMapper objectMapper;
+
+    public ChatStreamImpl(ConsultationTurnMapper turnMapper,
+                          ConsultationSessionMapper sessionMapper,
+                          SessionAccessor sessionAccessor,
+                          SessionManager sessionManager,
+                          RagRetrievalService ragRetrievalService,
+                          OpenAiChatModel chatModel,
+                          @Qualifier("multimodalChatModel") ChatModel multimodalChatModel,
+                          FileUploadConfig fileUploadConfig,
+                          ObjectMapper objectMapper) {
+        this.turnMapper = turnMapper;
+        this.sessionMapper = sessionMapper;
+        this.sessionAccessor = sessionAccessor;
+        this.sessionManager = sessionManager;
+        this.ragRetrievalService = ragRetrievalService;
+        this.chatModel = chatModel;
+        this.multimodalChatModel = multimodalChatModel;
+        this.fileUploadConfig = fileUploadConfig;
+        this.objectMapper = objectMapper;
+    }
 
     @Override
     public SseEmitter streamConsult(ConsultStreamRequest request, Long patientId) {
@@ -62,8 +95,11 @@ public class ChatStreamImpl implements ChatStream {
             if (SessionStatus.isCompleted(session.getStatus())) {
                 throw new BusinessException("问诊已结束，无法继续对话");
             }
-            if (!SessionStatus.isInProgress(session.getStatus())) {
-                throw new BusinessException("会话已转接医生，请在医生回复中继续沟通");
+            if (SessionStatus.PENDING_DOCTOR.equals(session.getStatus())) {
+                throw new BusinessException("已转接医生，请等待医生接诊后继续沟通");
+            }
+            if (SessionStatus.DOCTOR_ACTIVE.equals(session.getStatus())) {
+                log.info("医生沟通中, patientId={}, sessionSn={}", patientId, session.getSessionSn());
             }
         } else {
             // 自动创建新会话（恢复旧行为，支持前端首次发消息自动创建）
@@ -74,23 +110,67 @@ public class ChatStreamImpl implements ChatStream {
             }
         }
 
+        // DOCTOR_ACTIVE 状态：患者消息直接存入库，不发 AI 模型
+        if (SessionStatus.DOCTOR_ACTIVE.equals(session.getStatus())) {
+            savePatientTurn(session.getSessionSn(), request.getMessage());
+            updateSessionAfterChat(session);
+            SseEmitter emitter = new SseEmitter(SSE_TIMEOUT);
+            try {
+                emitter.send(SseEmitter.event().data("[DONE]"));
+                emitter.complete();
+            } catch (IOException e) {
+                log.error("SSE 完成发送失败", e);
+            }
+            emitter.onTimeout(() -> {});
+            emitter.onError(ex -> {});
+            return emitter;
+        }
+
+        // 检查是否合并连续消息：若最后一轮在 MERGE_WINDOW 内创建，则合并到该轮
+        ConsultationTurn lastTurn = turnMapper.selectLastTurn(session.getSessionSn());
+        final boolean shouldMerge = lastTurn != null
+                && !"DOCTOR".equals(lastTurn.getSenderType())
+                && lastTurn.getCreateTime() != null
+                && lastTurn.getCreateTime().isAfter(LocalDateTime.now().minusSeconds(MERGE_WINDOW_SECONDS));
+        final String effectiveMessage = shouldMerge
+                ? lastTurn.getUserMessage() + "\n" + request.getMessage()
+                : request.getMessage();
+        final int mergeTurnNumber = shouldMerge ? lastTurn.getTurnNumber() : -1;
+        if (shouldMerge) {
+            log.info("合并连续消息, sessionSn={}, turnNumber={}", session.getSessionSn(), mergeTurnNumber);
+        }
+
         // 加载多轮对话历史（从 turn 表）
         List<ConsultationTurn> historyTurns = turnMapper.selectBySessionSnDesc(session.getSessionSn());
         Collections.reverse(historyTurns);
+        if (shouldMerge && !historyTurns.isEmpty()) {
+            // 合并时排除最后一轮（将用 effectiveMessage 替代）
+            historyTurns = new ArrayList<>(historyTurns.subList(0, historyTurns.size() - 1));
+        }
+
+        // 加载会话中的图片（用于多模态问诊）
+        List<Media> sessionImages = loadSessionImages(session.getFileUrls());
+        boolean hasImages = sessionImages != null && !sessionImages.isEmpty();
 
         // RAG 检索
-        String ragContext = ragRetrievalService.retrieveAsContext(request.getMessage(), 3);
-        List<ConsultStreamResponse.Citation> citations = ragRetrievalService.retrieveCitations(request.getMessage(), 3);
+        String ragContext = ragRetrievalService.retrieveAsContext(effectiveMessage, 3);
+        List<ConsultStreamResponse.Citation> citations = ragRetrievalService.retrieveCitations(effectiveMessage, 3);
 
         // 构建 Prompt
-        List<Message> messages = buildPromptMessages(ragContext, historyTurns, request.getMessage(), session.getSymptomDraft());
+        List<Message> messages = buildPromptMessages(ragContext, historyTurns, effectiveMessage,
+                session.getSymptomDraft(), sessionImages);
+
+        // 有图片时使用多模态模型
+        ChatModel model = hasImages ? multimodalChatModel : chatModel;
+        log.info("问诊调用模型: {}, images={}, sessionSn={}", hasImages ? "multimodal" : "text",
+                sessionImages != null ? sessionImages.size() : 0, session.getSessionSn());
 
         // 创建 SseEmitter
         SseEmitter emitter = new SseEmitter(SSE_TIMEOUT);
         StringBuilder fullResponse = new StringBuilder();
         AtomicReference<String> sessionSnRef = new AtomicReference<>(session.getSessionSn());
 
-        Disposable disposable = chatModel.stream(new Prompt(messages))
+        Disposable disposable = model.stream(new Prompt(messages))
                 .subscribe(
                         chatResponse -> {
                             try {
@@ -108,7 +188,8 @@ public class ChatStreamImpl implements ChatStream {
                             log.error("AI 流式调用异常, sessionSn={}", sessionSnRef.get(), error);
                             try {
                                 if (fullResponse.length() > 0) {
-                                    saveTurn(session.getSessionSn(), request.getMessage(), fullResponse.toString(), citations);
+                                    saveOrUpdateTurn(session.getSessionSn(), effectiveMessage, fullResponse.toString(),
+                                            citations, shouldMerge, mergeTurnNumber);
                                     updateSessionAfterChat(session);
                                     emitter.send(SseEmitter.event().data("[DONE]"));
                                     emitter.complete();
@@ -121,7 +202,8 @@ public class ChatStreamImpl implements ChatStream {
                         },
                         () -> {
                             try {
-                                saveTurn(session.getSessionSn(), request.getMessage(), fullResponse.toString(), citations);
+                                saveOrUpdateTurn(session.getSessionSn(), effectiveMessage, fullResponse.toString(),
+                                        citations, shouldMerge, mergeTurnNumber);
                                 updateSessionAfterChat(session);
 
                                 if (citations != null && !citations.isEmpty()) {
@@ -170,12 +252,16 @@ public class ChatStreamImpl implements ChatStream {
         Collections.reverse(historyTurns);
         historyTurns.remove(historyTurns.size() - 1);
 
+        List<Media> sessionImages = loadSessionImages(session.getFileUrls());
+
         String ragContext = ragRetrievalService.retrieveAsContext(lastTurn.getUserMessage(), 3);
         List<ConsultStreamResponse.Citation> citations = ragRetrievalService.retrieveCitations(lastTurn.getUserMessage(), 3);
-        List<Message> messages = buildPromptMessages(ragContext, historyTurns, lastTurn.getUserMessage(), null);
+        List<Message> messages = buildPromptMessages(ragContext, historyTurns, lastTurn.getUserMessage(),
+                session.getSymptomDraft(), sessionImages);
 
-        // 同步调用 AI（非流式）
-        String aiResponse = chatModel.call(new Prompt(messages)).getResult().getOutput().getText();
+        // 同步调用 AI（有图片时用多模态模型）
+        ChatModel model = (sessionImages != null && !sessionImages.isEmpty()) ? multimodalChatModel : chatModel;
+        String aiResponse = model.call(new Prompt(messages)).getResult().getOutput().getText();
         String citationsJson = serializeCitations(citations);
 
         turnMapper.updateAssistantMessage(sessionSn, turnNumber, aiResponse, citationsJson);
@@ -200,6 +286,35 @@ public class ChatStreamImpl implements ChatStream {
         turnMapper.insert(turn);
     }
 
+    /**
+     * 根据是否合并决定插入新轮次或更新已有轮次
+     */
+    private void saveOrUpdateTurn(String sessionSn, String userMessage, String assistantMessage,
+                                   List<ConsultStreamResponse.Citation> citations,
+                                   boolean shouldMerge, int mergeTurnNumber) {
+        if (shouldMerge) {
+            turnMapper.updateUserAndAssistantMessage(sessionSn, mergeTurnNumber,
+                    userMessage, assistantMessage, serializeCitations(citations));
+            log.info("合并更新对话轮次, sessionSn={}, turnNumber={}", sessionSn, mergeTurnNumber);
+        } else {
+            saveTurn(sessionSn, userMessage, assistantMessage, citations);
+        }
+    }
+
+    private void savePatientTurn(String sessionSn, String message) {
+        Integer maxTurn = turnMapper.selectMaxTurnNumber(sessionSn);
+        int nextTurn = (maxTurn == null) ? 1 : maxTurn + 1;
+
+        ConsultationTurn turn = new ConsultationTurn();
+        turn.setSessionSn(sessionSn);
+        turn.setTurnNumber(nextTurn);
+        turn.setUserMessage(message);
+        turn.setAssistantMessage("");
+        turn.setSenderType("PATIENT");
+        turnMapper.insert(turn);
+        log.info("患者消息已保存, sessionSn={}, turnNumber={}", sessionSn, nextTurn);
+    }
+
     private void updateSessionAfterChat(ConsultationSession session) {
         sessionMapper.updateLastChatTime(session.getId(), LocalDateTime.now());
     }
@@ -217,7 +332,7 @@ public class ChatStreamImpl implements ChatStream {
     }
 
     private List<Message> buildPromptMessages(String ragContext, List<ConsultationTurn> historyTurns,
-                                               String currentMessage, String symptomDraft) {
+                                               String currentMessage, String symptomDraft, List<Media> sessionImages) {
         List<Message> messages = new ArrayList<>();
 
         StringBuilder systemContent = new StringBuilder();
@@ -251,7 +366,19 @@ public class ChatStreamImpl implements ChatStream {
             messages.add(new AssistantMessage(turn.getAssistantMessage()));
         }
 
-        messages.add(new UserMessage(currentMessage));
+        // 首轮消息 + 有图片时，通过 UserMessage + Media 发送多模态输入
+        boolean hasImages = sessionImages != null && !sessionImages.isEmpty();
+        boolean isFirstMessage = historyTurns.isEmpty();
+        if (hasImages && isFirstMessage) {
+            UserMessage.Builder builder = UserMessage.builder();
+            builder.text(currentMessage);
+            for (Media media : sessionImages) {
+                builder.media(media);
+            }
+            messages.add(builder.build());
+        } else {
+            messages.add(new UserMessage(currentMessage));
+        }
         return messages;
     }
 
@@ -284,5 +411,43 @@ public class ChatStreamImpl implements ChatStream {
                 .senderType(turn.getSenderType())
                 .createTime(turn.getCreateTime())
                 .build();
+    }
+
+    private List<Media> loadSessionImages(String fileUrls) {
+        if (fileUrls == null || fileUrls.isBlank()) {
+            return Collections.emptyList();
+        }
+        List<Media> mediaList = new ArrayList<>();
+        for (String url : fileUrls.split(",")) {
+            String filename = url.substring(url.lastIndexOf('/') + 1);
+            Path filePath = Paths.get(fileUploadConfig.getUploadPath(), filename);
+            if (!Files.exists(filePath)) {
+                log.warn("会话图片不存在, url={}, path={}", url, filePath);
+                continue;
+            }
+            String ext = filename.toLowerCase();
+            if (!isImageExtension(ext)) {
+                continue;
+            }
+            Resource resource = new FileSystemResource(filePath);
+            MimeType mimeType = determineMimeType(filename);
+            mediaList.add(new Media(mimeType, resource));
+        }
+        return mediaList;
+    }
+
+    private MimeType determineMimeType(String filename) {
+        String name = filename.toLowerCase();
+        if (name.endsWith(".png")) return MimeTypeUtils.IMAGE_PNG;
+        if (name.endsWith(".gif")) return MimeTypeUtils.IMAGE_GIF;
+        if (name.endsWith(".webp")) return MimeTypeUtils.parseMimeType("image/webp");
+        if (name.endsWith(".bmp")) return MimeTypeUtils.parseMimeType("image/bmp");
+        return MimeTypeUtils.IMAGE_JPEG;
+    }
+
+    private boolean isImageExtension(String filename) {
+        return filename.endsWith(".jpg") || filename.endsWith(".jpeg")
+                || filename.endsWith(".png") || filename.endsWith(".gif")
+                || filename.endsWith(".webp") || filename.endsWith(".bmp");
     }
 }

@@ -5,9 +5,11 @@ import com.smart.health.common.result.ResultCode;
 import com.smart.health.registration.config.ScheduleRedisConfig;
 import com.smart.health.registration.dto.ScheduleCreateRequest;
 import com.smart.health.registration.dto.SeckillRequest;
+import com.smart.health.registration.dto.SeckillOrderMessage;
 import com.smart.health.registration.dto.SeckillResponse;
 import com.smart.health.registration.entity.DoctorSchedule;
 import com.smart.health.registration.mapper.DoctorScheduleMapper;
+import com.smart.health.registration.mapper.DoctorMapper;
 import com.smart.health.registration.service.impl.ScheduleServiceImpl;
 import com.smart.health.registration.util.OrderSnGenerator;
 import org.junit.jupiter.api.BeforeEach;
@@ -40,6 +42,9 @@ class ScheduleServiceImplTest {
     private DoctorScheduleMapper doctorScheduleMapper;
 
     @Mock
+    private DoctorMapper doctorMapper;
+
+    @Mock
     private ScheduleRedisConfig scheduleRedisConfig;
 
     @Mock
@@ -57,6 +62,7 @@ class ScheduleServiceImplTest {
     void setUp() {
         scheduleService = new ScheduleServiceImpl(
                 doctorScheduleMapper,
+                doctorMapper,
                 scheduleRedisConfig,
                 rabbitTemplate,
                 orderSnGenerator
@@ -87,6 +93,62 @@ class ScheduleServiceImplTest {
         // Then
         verify(doctorScheduleMapper).insert(any());
         verify(scheduleRedisConfig).initScheduleStock(100L, 10, new BigDecimal("50.00"));
+        // 未传 departmentId 时应自动查询医生主科室
+        verify(doctorMapper).selectPrimaryDepartmentId(1L);
+    }
+
+    @Test
+    @DisplayName("创建排班 - 未传科室ID时自动补全主科室")
+    void createSchedule_autoResolveDepartmentId() {
+        // Given
+        ScheduleCreateRequest request = new ScheduleCreateRequest();
+        request.setDoctorId(5L);
+        request.setDeptName("内科");
+        request.setWorkDate(LocalDate.now().plusDays(1));
+        request.setShift(1);
+        request.setTotalCount(20);
+        request.setPrice(new BigDecimal("30.00"));
+
+        when(doctorMapper.selectPrimaryDepartmentId(5L)).thenReturn(1L);
+        when(doctorScheduleMapper.insert(any())).thenAnswer(invocation -> {
+            DoctorSchedule schedule = invocation.getArgument(0);
+            schedule.setId(200L);
+            return 1;
+        });
+
+        // When
+        scheduleService.createSchedule(request);
+
+        // Then
+        verify(doctorMapper).selectPrimaryDepartmentId(5L);
+        verify(scheduleRedisConfig).initScheduleStock(200L, 20, new BigDecimal("30.00"));
+    }
+
+    @Test
+    @DisplayName("创建排班 - 已传科室ID时不查询医生主科室")
+    void createSchedule_withDepartmentId_skipAutoResolve() {
+        // Given
+        ScheduleCreateRequest request = new ScheduleCreateRequest();
+        request.setDoctorId(1L);
+        request.setDepartmentId(3L);
+        request.setDeptName("骨科");
+        request.setWorkDate(LocalDate.now().plusDays(1));
+        request.setShift(2);
+        request.setTotalCount(15);
+        request.setPrice(new BigDecimal("80.00"));
+
+        when(doctorScheduleMapper.insert(any())).thenAnswer(invocation -> {
+            DoctorSchedule schedule = invocation.getArgument(0);
+            schedule.setId(300L);
+            return 1;
+        });
+
+        // When
+        scheduleService.createSchedule(request);
+
+        // Then
+        verify(doctorMapper, never()).selectPrimaryDepartmentId(anyLong());
+        verify(scheduleRedisConfig).initScheduleStock(300L, 15, new BigDecimal("80.00"));
     }
 
     @Test
@@ -208,7 +270,7 @@ class ScheduleServiceImplTest {
                 .when(rabbitTemplate).convertAndSend(
                         eq("exchange.registration"),
                         eq("order.create"),
-                        any(SeckillResponse.class));
+                        any(SeckillOrderMessage.class));
 
         // When & Then
         assertThatThrownBy(() -> scheduleService.seckill(request, patientId))

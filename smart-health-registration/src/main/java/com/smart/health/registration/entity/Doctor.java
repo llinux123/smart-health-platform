@@ -25,6 +25,9 @@ public class Doctor {
     /** 所属科室 */
     private String deptName;
 
+    /** 主科室ID（非数据库字段，通过 JOIN t_doctor_department 填充） */
+    private Long primaryDepartmentId;
+
     /** 擅长领域 */
     private String specialty;
 

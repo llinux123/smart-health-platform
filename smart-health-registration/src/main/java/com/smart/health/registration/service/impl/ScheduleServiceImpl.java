@@ -11,6 +11,7 @@ import com.smart.health.registration.dto.SeckillRequest;
 import com.smart.health.registration.dto.SeckillResponse;
 import com.smart.health.registration.entity.DoctorSchedule;
 import com.smart.health.registration.mapper.DoctorScheduleMapper;
+import com.smart.health.registration.mapper.DoctorMapper;
 import com.smart.health.registration.service.ScheduleService;
 import com.smart.health.registration.util.OrderSnGenerator;
 import lombok.RequiredArgsConstructor;
@@ -34,6 +35,7 @@ import java.util.stream.Collectors;
 public class ScheduleServiceImpl implements ScheduleService {
 
     private final DoctorScheduleMapper doctorScheduleMapper;
+    private final DoctorMapper doctorMapper;
     private final ScheduleRedisConfig scheduleRedisConfig;
     private final RabbitTemplate rabbitTemplate;
     private final OrderSnGenerator orderSnGenerator;
@@ -47,6 +49,12 @@ public class ScheduleServiceImpl implements ScheduleService {
         schedule.setDoctorId(request.getDoctorId());
         if (request.getDepartmentId() != null) {
             schedule.setDepartmentId(request.getDepartmentId());
+        } else {
+            // 未传科室ID时，自动从医生主科室补全
+            Long primaryDeptId = doctorMapper.selectPrimaryDepartmentId(request.getDoctorId());
+            if (primaryDeptId != null) {
+                schedule.setDepartmentId(primaryDeptId);
+            }
         }
         schedule.setDeptName(request.getDeptName());
         schedule.setWorkDate(request.getWorkDate());

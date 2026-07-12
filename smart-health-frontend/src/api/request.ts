@@ -25,6 +25,10 @@ function cacheKey(config: InternalAxiosRequestConfig): string {
 const request: AxiosInstance = axios.create({
   baseURL: import.meta.env.VITE_API_BASE_URL || '',
   timeout: 15000,
+  headers: {
+    'Content-Type': 'application/json; charset=UTF-8',
+    'Accept-Charset': 'UTF-8'
+  },
   // 将 304 视为成功响应，由拦截器统一处理
   validateStatus: (status) => (status >= 200 && status < 300) || status === 304
 })
@@ -34,6 +38,11 @@ request.interceptors.request.use(
     const token = getToken()
     if (token) {
       config.headers['Authorization'] = `Bearer ${token}`
+    }
+
+    // FormData 请求：清除 Content-Type，让浏览器自动生成 multipart boundary
+    if (config.data instanceof FormData) {
+      config.headers.delete('Content-Type')
     }
 
     // 对会话相关接口附加 If-None-Match

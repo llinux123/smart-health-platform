@@ -7,7 +7,6 @@ export function multimodalAnalyze(files: File[], type: string) {
   files.forEach(file => formData.append('files', file))
   formData.append('type', type)
   return request.post('/api/v1/ai/multimodal/analyze', formData, {
-    headers: { 'Content-Type': 'multipart/form-data' },
     timeout: 60000
   })
 }
@@ -50,9 +49,7 @@ export interface PageResult<T> {
 
 /** 创建问诊会话 */
 export function createSession(draftId: string, symptomDraft: string, fileUrls?: string) {
-  return request.post('/api/v1/ai/sessions', null, {
-    params: { draftId, symptomDraft, fileUrls }
-  })
+  return request.post('/api/v1/ai/sessions', { draftId, symptomDraft, fileUrls })
 }
 
 /** 分页查询会话列表 */

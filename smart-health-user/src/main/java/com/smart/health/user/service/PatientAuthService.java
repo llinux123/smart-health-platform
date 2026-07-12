@@ -172,6 +172,7 @@ public class PatientAuthService {
             String randomPassword = generateRandomPassword();
             patient.setPassword(passwordEncoder.encode(randomPassword));
             patient.setRealName(phone.substring(0, 3) + "****" + phone.substring(7));
+            patient.setIdCard(phone);
             patient.setPhone(phone);
             patient.setGender(0);
             patientMapper.insert(patient);

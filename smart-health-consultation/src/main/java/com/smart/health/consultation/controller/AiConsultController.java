@@ -49,6 +49,7 @@ public class AiConsultController {
             @RequestParam("type") String type,
             @RequestHeader(value = CommonConstants.TOKEN_HEADER, required = false) String bearerToken) {
         Long patientId = extractPatientId(bearerToken);
+        log.info("多模态分析: patientId={}, files={}, type={}", patientId, files.size(), type);
         MultimodalAnalyzeResponse response = multimodalService.analyze(files, type, patientId);
         return Result.ok(response);
     }
@@ -69,12 +70,11 @@ public class AiConsultController {
     @PostMapping("/sessions")
     @Operation(summary = "创建问诊会话")
     public Result<String> createSession(
-            @RequestParam(value = "draftId", required = false) String draftId,
-            @RequestParam(value = "symptomDraft", required = false) String symptomDraft,
-            @RequestParam(value = "fileUrls", required = false) String fileUrls,
+            @RequestBody CreateSessionRequest request,
             @RequestHeader(value = CommonConstants.TOKEN_HEADER, required = false) String bearerToken) {
         Long patientId = extractPatientId(bearerToken);
-        String sessionSn = sessionManager.createSession(patientId, draftId, symptomDraft, fileUrls);
+        String sessionSn = sessionManager.createSession(patientId, request.getDraftId(),
+                request.getSymptomDraft(), request.getFileUrls());
         return Result.ok(sessionSn);
     }
 

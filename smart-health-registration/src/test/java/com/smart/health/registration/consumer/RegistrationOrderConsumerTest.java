@@ -1,6 +1,5 @@
 package com.smart.health.registration.consumer;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.smart.health.registration.config.ScheduleRedisConfig;
 import com.smart.health.registration.dto.SeckillOrderMessage;
 import com.smart.health.registration.entity.RegistrationOrder;
@@ -15,7 +14,6 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import java.math.BigDecimal;
 
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -30,36 +28,34 @@ class RegistrationOrderConsumerTest {
     @Mock
     private ScheduleRedisConfig scheduleRedisConfig;
 
-    @Mock
-    private ObjectMapper objectMapper;
-
     private RegistrationOrderConsumer consumer;
 
     @BeforeEach
     void setUp() {
         consumer = new RegistrationOrderConsumer(
                 registrationOrderService,
-                scheduleRedisConfig,
-                objectMapper
+                scheduleRedisConfig
         );
     }
 
-    @Test
-    @DisplayName("处理消息 - 订单已存在时跳过")
-    void handleOrderMessage_orderExists_skip() throws Exception {
-        // Given
-        String message = "{\"orderSn\":\"REG_20260629_000001\",\"patientId\":100,\"scheduleId\":1,\"amount\":50.0}";
+    private SeckillOrderMessage buildOrderMessage() {
         SeckillOrderMessage orderMessage = new SeckillOrderMessage();
         orderMessage.setOrderSn("REG_20260629_000001");
         orderMessage.setPatientId(100L);
         orderMessage.setScheduleId(1L);
         orderMessage.setAmount(new BigDecimal("50.00"));
+        return orderMessage;
+    }
 
-        when(objectMapper.readValue(message, SeckillOrderMessage.class)).thenReturn(orderMessage);
+    @Test
+    @DisplayName("处理消息 - 订单已存在时跳过")
+    void handleOrderMessage_orderExists_skip() {
+        // Given
+        SeckillOrderMessage orderMessage = buildOrderMessage();
         when(registrationOrderService.getByOrderSn("REG_20260629_000001")).thenReturn(new RegistrationOrder());
 
         // When
-        consumer.handleOrderMessage(message);
+        consumer.handleOrderMessage(orderMessage);
 
         // Then
         verify(registrationOrderService, never()).createOrder(any());
@@ -67,35 +63,29 @@ class RegistrationOrderConsumerTest {
 
     @Test
     @DisplayName("处理消息 - 成功创建订单")
-    void handleOrderMessage_success() throws Exception {
+    void handleOrderMessage_success() {
         // Given
-        String message = "{\"orderSn\":\"REG_20260629_000001\",\"patientId\":100,\"scheduleId\":1,\"amount\":50.0}";
-        SeckillOrderMessage orderMessage = new SeckillOrderMessage();
-        orderMessage.setOrderSn("REG_20260629_000001");
-        orderMessage.setPatientId(100L);
-        orderMessage.setScheduleId(1L);
-        orderMessage.setAmount(new BigDecimal("50.00"));
-
-        when(objectMapper.readValue(message, SeckillOrderMessage.class)).thenReturn(orderMessage);
+        SeckillOrderMessage orderMessage = buildOrderMessage();
         when(registrationOrderService.getByOrderSn("REG_20260629_000001")).thenReturn(null);
         when(registrationOrderService.createOrder(any())).thenAnswer(invocation -> invocation.getArgument(0));
 
         // When
-        consumer.handleOrderMessage(message);
+        consumer.handleOrderMessage(orderMessage);
 
         // Then
         verify(registrationOrderService).createOrder(any());
     }
 
     @Test
-    @DisplayName("处理消息 - 解析失败仅记录日志，不抛出异常")
-    void handleOrderMessage_parseError_logOnly() throws Exception {
+    @DisplayName("处理消息 - createOrder 抛异常时仅记录日志，不抛出")
+    void handleOrderMessage_createOrderThrows_logOnly() {
         // Given
-        String message = "invalid json";
-        when(objectMapper.readValue(anyString(), any(Class.class))).thenThrow(new RuntimeException("Parse error"));
+        SeckillOrderMessage orderMessage = buildOrderMessage();
+        when(registrationOrderService.getByOrderSn("REG_20260629_000001")).thenReturn(null);
+        when(registrationOrderService.createOrder(any())).thenThrow(new RuntimeException("DB error"));
 
         // When & Then - 不抛出异常，仅记录日志
-        consumer.handleOrderMessage(message);
+        consumer.handleOrderMessage(orderMessage);
     }
 
     @Test

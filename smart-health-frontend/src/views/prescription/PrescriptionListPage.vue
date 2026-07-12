@@ -1,6 +1,6 @@
 <template>
   <div class="prescription-list-page page-container">
-    <van-nav-bar title="我的处方" />
+    <van-nav-bar title="我的处方" left-arrow @click-left="$router.push('/home')" />
 
     <van-loading v-if="loading" class="page-loading" />
 
