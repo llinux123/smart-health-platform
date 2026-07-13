@@ -126,8 +126,10 @@ async function loadInventory() {
   invLoading.value = true
   try {
     inventoryList.value = await listInventory(1)
-  } catch { /* 静默 */ }
-  finally { invLoading.value = false }
+  } catch (err) {
+    console.error('加载库存列表失败:', err)
+    showFailToast('加载库存列表失败')
+  } finally { invLoading.value = false }
 }
 
 // ============ 药品选择器 ============

@@ -34,6 +34,11 @@ public interface InventoryService {
     List<PharmacyInventory> listByPharmacy(Long pharmacyId);
 
     /**
+     * 查询所有药房的全部库存
+     */
+    List<PharmacyInventory> listAll();
+
+    /**
      * 查询库存变动日志
      */
     List<InventoryLog> listLogs(Long pharmacyId, Long medicineId, int page, int size);

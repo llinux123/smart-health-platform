@@ -383,8 +383,8 @@ onUnmounted(() => {
           </div>
         </div>
 
-        <!-- AI 回复（仅非医生回复的真实轮次） -->
-        <div v-if="turn.turnNumber > 0 && turn.senderType !== 'DOCTOR'" class="message-wrapper">
+        <!-- AI 回复 -->
+        <div v-if="turn.turnNumber > 0 && turn.senderType === 'AI'" class="message-wrapper">
           <div class="message-bubble assistant">
             <div class="message-avatar">
               <van-icon name="service-o" size="20" />

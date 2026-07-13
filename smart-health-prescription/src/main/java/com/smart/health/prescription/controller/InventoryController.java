@@ -64,6 +64,10 @@ public class InventoryController {
     @PreAuthorize("hasAnyRole('ADMIN','DOCTOR')")
     public Result<List<PharmacyInventory>> list(
             @Parameter(description = "药房ID") @RequestParam(defaultValue = "1") Long pharmacyId) {
+        String role = SecurityUtils.getCurrentRole();
+        if ("ADMIN".equals(role)) {
+            return Result.ok(inventoryService.listAll());
+        }
         return Result.ok(inventoryService.listByPharmacy(pharmacyId));
     }
 

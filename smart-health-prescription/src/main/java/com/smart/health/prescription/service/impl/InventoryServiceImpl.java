@@ -5,8 +5,10 @@ import com.smart.health.prescription.dto.InboundRequest;
 import com.smart.health.prescription.dto.OutboundRequest;
 import com.smart.health.prescription.dto.ReconcileRequest;
 import com.smart.health.prescription.entity.InventoryLog;
+import com.smart.health.prescription.entity.Medicine;
 import com.smart.health.prescription.entity.PharmacyInventory;
 import com.smart.health.prescription.mapper.InventoryLogMapper;
+import com.smart.health.prescription.mapper.MedicineMapper;
 import com.smart.health.prescription.mapper.PharmacyInventoryMapper;
 import com.smart.health.prescription.service.InventoryService;
 import lombok.RequiredArgsConstructor;
@@ -26,6 +28,7 @@ public class InventoryServiceImpl implements InventoryService {
 
     private final PharmacyInventoryMapper pharmacyInventoryMapper;
     private final InventoryLogMapper inventoryLogMapper;
+    private final MedicineMapper medicineMapper;
 
     @Override
     @Transactional(rollbackFor = Exception.class)
@@ -33,7 +36,33 @@ public class InventoryServiceImpl implements InventoryService {
         PharmacyInventory inv = pharmacyInventoryMapper.selectByPharmacyAndMedicine(
                 request.getPharmacyId(), request.getMedicineId());
         if (inv == null) {
-            throw new BusinessException("该药品在该药房无库存记录，请先初始化");
+            Medicine medicine = medicineMapper.selectById(request.getMedicineId());
+            if (medicine == null) {
+                throw new BusinessException("药品不存在");
+            }
+            inv = new PharmacyInventory();
+            inv.setPharmacyId(request.getPharmacyId());
+            inv.setMedicineId(request.getMedicineId());
+            inv.setMedicineName(medicine.getName());
+            inv.setStock(request.getQuantity());
+            inv.setLockStock(0);
+            inv.setUnit(medicine.getUnit());
+            pharmacyInventoryMapper.insert(inv);
+
+            InventoryLog logRecord = new InventoryLog();
+            logRecord.setPharmacyId(request.getPharmacyId());
+            logRecord.setMedicineId(request.getMedicineId());
+            logRecord.setChangeType("INBOUND");
+            logRecord.setQuantityChange(request.getQuantity());
+            logRecord.setStockBefore(0);
+            logRecord.setStockAfter(request.getQuantity());
+            logRecord.setReason(request.getReason());
+            logRecord.setOperatorId(operatorId);
+            inventoryLogMapper.insert(logRecord);
+
+            log.info("首次入库成功，pharmacyId={}, medicineId={}, quantity={}",
+                    request.getPharmacyId(), request.getMedicineId(), request.getQuantity());
+            return;
         }
 
         int before = inv.getStock();
@@ -125,6 +154,11 @@ public class InventoryServiceImpl implements InventoryService {
     @Override
     public List<PharmacyInventory> listByPharmacy(Long pharmacyId) {
         return pharmacyInventoryMapper.selectByPharmacyId(pharmacyId);
+    }
+
+    @Override
+    public List<PharmacyInventory> listAll() {
+        return pharmacyInventoryMapper.selectAll();
     }
 
     @Override

@@ -24,6 +24,18 @@ public interface PharmacyInventoryMapper {
             "FROM t_pharmacy_inventory WHERE pharmacy_id = #{pharmacyId}")
     List<PharmacyInventory> selectByPharmacyId(@Param("pharmacyId") Long pharmacyId);
 
+    @Select("SELECT id, pharmacy_id, medicine_id, medicine_name, stock, lock_stock, unit, update_time " +
+            "FROM t_pharmacy_inventory ORDER BY pharmacy_id, medicine_id")
+    List<PharmacyInventory> selectAll();
+
+    /**
+     * 插入新库存记录（首次入库时自动创建）
+     */
+    @Insert("INSERT INTO t_pharmacy_inventory (pharmacy_id, medicine_id, medicine_name, stock, lock_stock, unit) " +
+            "VALUES (#{pharmacyId}, #{medicineId}, #{medicineName}, #{stock}, #{lockStock}, #{unit})")
+    @Options(useGeneratedKeys = true, keyProperty = "id")
+    int insert(PharmacyInventory inventory);
+
     /**
      * 扣减库存（条件更新：库存充足时才扣减，防止超卖）
      * 返回受影响行数：1=成功，0=库存不足
